@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#030712">
+<title>A.J — APEX SYSTEM</title>
+<style>
+:root {
+  --ac:#00e5ff; --ac2:#0077ff; --glow:rgba(0,229,255,0.48);
+  --bg:#030712; --rad:rgba(0,145,255,0.22);
+  --card:rgba(8,15,32,0.90); --card2:rgba(5,10,22,0.95);
+  --bd:rgba(0,229,255,0.52); --bdd:rgba(0,229,255,0.20);
+  --txt:#e2f3ff; --mut:#7aa2c4;
+  --ok:#10b981; --warn:#fbbf24; --bad:#ff2a55;
+}
+body.accent-violet { --ac:#c084fc; --ac2:#7e22ce; --glow:rgba(192,132,252,0.50); --bg:#070312; --rad:rgba(147,51,234,0.28); --bd:rgba(192,132,252,0.58); --bdd:rgba(192,132,252,0.22); }
+body.accent-crimson { --ac:#ff4d6d; --ac2:#b91c1c; --glow:rgba(255,77,109,0.50); --bg:#120307; --rad:rgba(220,38,38,0.26); --bd:rgba(255,77,109,0.58); --bdd:rgba(255,77,109,0.22); }
+body.accent-emerald { --ac:#34d399; --ac2:#059669; --glow:rgba(52,211,153,0.48); --bg:#03120c; --rad:rgba(16,185,129,0.24); --bd:rgba(52,211,153,0.55); --bdd:rgba(52,211,153,0.22); }
+body.accent-gold { --ac:#fbbf24; --ac2:#d97706; --glow:rgba(251,191,36,0.52); --bg:#110c02; --rad:rgba(245,158,11,0.26); --bd:rgba(251,191,36,0.62); --bdd:rgba(251,191,36,0.24); }
+body.accent-pink { --ac:#f472b6; --ac2:#db2777; --glow:rgba(244,114,182,0.50); --bg:#14030d; --rad:rgba(219,39,119,0.25); --bd:rgba(244,114,182,0.58); --bdd:rgba(244,114,182,0.22); }
+body.accent-sdark { --ac:#e2e8f0; --ac2:#64748b; --glow:rgba(226,232,240,0.20); --bg:#0f172a; --rad:rgba(15,23,42,0); --card:#1e293b; --card2:#0f172a; --bd:#475569; --bdd:#334155; --txt:#f8fafc; --mut:#94a3b8; }
+body.accent-slight { --ac:#0284c7; --ac2:#0369a1; --glow:rgba(2,132,199,0.22); --bg:#f1f5f9; --rad:rgba(241,245,249,0); --card:#ffffff; --card2:#e2e8f0; --bd:#94a3b8; --bdd:#cbd5e1; --txt:#0f172a; --mut:#475569; }
+body.theme-penalty { --ac:#ff2a55 !important; --ac2:#990020 !important; --glow:rgba(255,42,85,0.55) !important; --bg:#130206 !important; --bd:rgba(255,42,85,0.85) !important; }
+* { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+html, body { width:100%; min-height:100%; background:var(--bg); color:var(--txt); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; overflow-x:hidden; }
+body {
+  display:flex; flex-direction:column; align-items:center; padding:10px 10px 84px;
+  background-image:radial-gradient(circle at 50% 0%, var(--rad) 0%, transparent 62%), linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size:100% 100%, 24px 24px, 24px 24px; transition:background-color 0.3s ease;
+}
+body.accent-slight .q-item, body.accent-slight .stat-box, body.accent-slight .inp, body.accent-slight select, body.accent-slight textarea, body.accent-slight .cal-d, body.accent-slight .ach-card { background:#f8fafc; color:#0f172a; }
+body.accent-slight .btn { background:rgba(2,132,199,0.08); color:#0f172a; }
+body.accent-slight .btn-pri, body.accent-slight .btn.on { color:#fff; }
+#manaCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-index:0; pointer-events:none; }
+.wrap { position:relative; z-index:2; width:100%; max-width:480px; }
+.mono { font-family:'Courier New',Courier,monospace; }
+.glow { color:var(--ac); text-shadow:0 0 10px var(--glow); }
+.hidden { display:none !important; }
+.row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.g2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.g3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
+.g4 { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+.g5 { display:grid; grid-template-columns:repeat(5,1fr); gap:5px; }
+.mt6 { margin-top:6px; } .mt8 { margin-top:8px; } .mt10 { margin-top:10px; }
+.xs { font-size:10px; color:var(--mut); letter-spacing:0.6px; }
+
+/* SHINY ANIMATED A.J TITLE */
+.aj-title {
+  font-size:24px; font-weight:900; letter-spacing:4px; line-height:1.1;
+  background:linear-gradient(90deg, var(--ac), #ffffff, #fbbf24, var(--ac));
+  background-size:240% auto;
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  animation:shineTitle 2.8s linear infinite;
+  filter:drop-shadow(0 0 8px var(--glow));
+}
+@keyframes shineTitle { 0%{background-position:0% center;} 100%{background-position:240% center;} }
+body.accent-slight .aj-title { background:linear-gradient(90deg,#0284c7,#7c3aed,#0284c7); background-size:200% auto; -webkit-background-clip:text; background-clip:text; }
+
+.card {
+  position:relative; background:var(--card); border:1px solid var(--bdd);
+  border-radius:12px; padding:12px; margin-bottom:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.45); overflow:hidden;
+}
+.card:before, .card:after { content:''; position:absolute; width:10px; height:10px; pointer-events:none; border-color:var(--ac); border-style:solid; opacity:0.8; }
+.card:before { top:0; left:0; border-width:2px 0 0 2px; border-radius:4px 0 0 0; }
+.card:after { bottom:0; right:0; border-width:0 2px 2px 0; border-radius:0 0 4px 0; }
+.scanline { position:absolute; top:0; left:0; right:0; height:2px; opacity:0.22; pointer-events:none; background:linear-gradient(90deg,transparent,var(--ac),transparent); animation:scanMove 4.5s linear infinite; }
+@keyframes scanMove { 0%{top:0;} 100%{top:100%;} }
+.bang { width:36px; height:36px; border-radius:9px; border:1.5px solid var(--ac); display:flex; align-items:center; justify-content:center; font-weight:900; font-size:18px; color:var(--ac); box-shadow:0 0 14px var(--glow), inset 0 0 8px var(--glow); flex-shrink:0; animation:pulseGlow 2.4s ease-in-out infinite; }
+.rank-pill { padding:4px 10px; border-radius:7px; border:1px solid var(--ac); font-size:11px; font-weight:800; letter-spacing:1.2px; color:var(--ac); background:rgba(0,229,255,0.08); }
+@keyframes pulseGlow { 0%,100%{box-shadow:0 0 6px var(--glow);} 50%{box-shadow:0 0 18px var(--glow);} }
+.bar-bg { width:100%; height:7px; border-radius:6px; background:rgba(128,128,128,0.18); overflow:hidden; position:relative; }
+.bar-fill { height:100%; width:0%; border-radius:6px; background:linear-gradient(90deg,var(--ac2),var(--ac)); box-shadow:0 0 10px var(--glow); transition:width 0.35s ease; }
+.bar-fill.ok { background:linear-gradient(90deg,#059669,#34d399); }
+.bar-fill.bad { background:linear-gradient(90deg,#991b1b,#ff2a55); }
+.bar-fill.warn { background:linear-gradient(90deg,#d97706,#fbbf24); }
+
+/* 7-PAGE CLEAN NAV BAR */
+.nav { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:8px; }
+.nav-btn { background:var(--card2); border:1px solid var(--bdd); border-radius:9px; padding:7px 2px; color:var(--mut); font-size:8.5px; font-weight:800; letter-spacing:0.4px; text-align:center; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; }
+.nav-btn .ico { font-size:14px; line-height:1; }
+.nav-btn.active { color:var(--ac); border-color:var(--ac); background:rgba(0,229,255,0.14); box-shadow:0 0 12px var(--glow); }
+
+.dlg-bar { display:flex; align-items:center; gap:8px; padding:8px 11px; border-color:var(--bd); cursor:pointer; }
+.dlg-txt { font-size:11.5px; line-height:1.35; color:var(--txt); flex:1; }
+.btn { width:100%; padding:10px; border-radius:9px; border:1px solid var(--bd); background:rgba(0,229,255,0.10); color:var(--txt); font-size:11px; font-weight:800; letter-spacing:0.8px; cursor:pointer; text-transform:uppercase; }
+.btn:active { transform:scale(0.97); }
+.btn-pri { background:linear-gradient(135deg,var(--ac2),var(--ac)); color:#020617; border-color:var(--ac); box-shadow:0 0 14px var(--glow); }
+.btn-ok { background:linear-gradient(135deg,#059669,#10b981); color:#02160f; border-color:#34d399; }
+.btn-bad { background:linear-gradient(135deg,#991b1b,#ff2a55); color:#fff; border-color:#ff4d6d; }
+.btn-warn { background:linear-gradient(135deg,#b45309,#fbbf24); color:#1a0f00; border-color:#fde68a; }
+.btn-sm { padding:6px 7px; font-size:9.5px; width:auto; }
+.btn.on { background:var(--ac); color:#020617; border-color:var(--ac); }
+.pill { display:inline-block; padding:3px 7px; border-radius:99px; font-size:9.5px; font-weight:800; letter-spacing:0.7px; border:1px solid var(--bdd); background:rgba(0,229,255,0.08); color:var(--ac); }
+.pill.ok { border-color:#10b981; color:#34d399; background:rgba(16,185,129,0.14); }
+.pill.warn { border-color:#fbbf24; color:#fde68a; background:rgba(251,191,36,0.14); }
+.pill.bad { border-color:#ff2a55; color:#fda4af; background:rgba(255,42,85,0.16); }
+.q-item { background:rgba(2,6,18,0.72); border:1px solid var(--bdd); border-radius:9px; padding:9px 10px; margin-top:7px; }
+.stat-box { background:rgba(2,6,18,0.75); border:1px solid var(--bdd); border-radius:8px; padding:7px 4px; text-align:center; }
+.stat-val { font-size:13.5px; font-weight:900; color:var(--ac); }
+.plus-btn { margin-top:4px; padding:3px 0; width:100%; border-radius:5px; border:1px solid var(--ac); background:rgba(0,229,255,0.18); color:var(--ac); font-size:11px; font-weight:900; cursor:pointer; }
+.inp, select, textarea { width:100%; padding:8px 9px; border-radius:8px; border:1px solid var(--bdd); background:#040a18; color:var(--txt); font-size:12px; outline:none; }
+input[type="range"] { width:100%; accent-color:var(--ac); }
+.map-box { position:relative; width:100%; height:200px; border-radius:10px; overflow:hidden; border:1px solid var(--bd); background:#020611; }
+#mapCanvas { width:100%; height:100%; display:block; }
+.map-hud { position:absolute; top:7px; left:7px; right:7px; display:flex; justify-content:space-between; align-items:center; pointer-events:none; }
+.map-hud .btn-sm { pointer-events:auto; background:rgba(3,7,18,0.85); color:#e2f3ff; }
+.map-bot { position:absolute; bottom:7px; left:7px; right:7px; display:flex; justify-content:space-between; align-items:center; pointer-events:none; }
+.map-ctrls { display:flex; gap:5px; pointer-events:auto; }
+.map-ctrls .btn-sm { background:rgba(3,7,18,0.88); min-width:30px; color:#e2f3ff; }
+.cam-wrap { position:relative; width:100%; height:230px; border-radius:10px; overflow:hidden; border:1px solid var(--bd); background:#000; margin-top:8px; }
+#camVid { width:100%; height:100%; object-fit:cover; display:block; }
+#skelCanvas { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+.cam-hud { position:absolute; top:7px; left:7px; right:7px; display:flex; justify-content:space-between; font-size:10px; font-weight:800; color:#fff; text-shadow:0 1px 4px #000; pointer-events:none; }
+.cam-coach { position:absolute; bottom:8px; left:50%; transform:translateX(-50%); padding:4px 10px; border-radius:99px; font-size:10px; font-weight:900; letter-spacing:1px; background:rgba(3,7,18,0.88); border:1px solid var(--ac); color:var(--ac); pointer-events:none; white-space:nowrap; }
+.gauge-wrap { position:relative; height:14px; border-radius:7px; background:rgba(128,128,128,0.18); border:1px solid var(--bdd); overflow:hidden; margin-top:7px; }
+.gauge-bar { height:100%; width:0%; background:linear-gradient(90deg,var(--ac2),var(--ac)); transition:width 0.08s; }
+.gauge-line { position:absolute; top:0; bottom:0; width:2px; background:#ff2a55; left:55%; }
+.tap-pad { width:100%; padding:15px 10px; margin-top:8px; border-radius:11px; border:2px dashed var(--ac); background:rgba(0,229,255,0.08); color:var(--ac); font-size:13px; font-weight:900; letter-spacing:1px; cursor:pointer; text-align:center; }
+.tap-pad:active { background:rgba(0,229,255,0.28); transform:scale(0.98); }
+.art-slot { width:56px; height:56px; border-radius:10px; border:1px solid var(--bd); background:radial-gradient(circle,rgba(192,132,252,0.22),rgba(2,6,18,0.95)); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.art-slot svg { width:40px; height:40px; }
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-top:8px; }
+.cal-h { text-align:center; font-size:9px; font-weight:800; color:var(--mut); padding:2px 0; }
+.cal-d { height:34px; border-radius:7px; border:1px solid var(--bdd); background:rgba(2,6,18,0.65); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; cursor:pointer; }
+.cal-d.empty { border:none; background:transparent; cursor:default; }
+.cal-d.today { border-color:var(--ac); box-shadow:0 0 10px var(--glow); color:var(--ac); }
+.cal-d.ok { background:rgba(16,185,129,0.22); border-color:#10b981; color:#34d399; }
+.cal-d.miss { background:rgba(255,42,85,0.16); border-color:rgba(255,42,85,0.55); color:#fda4af; }
+.flask-row { display:grid; grid-template-columns:repeat(8,1fr); gap:4px; margin-top:7px; }
+.flask { height:27px; border-radius:6px; border:1px solid var(--bdd); background:rgba(2,6,18,0.7); display:flex; align-items:center; justify-content:center; font-size:13px; cursor:pointer; opacity:0.45; }
+.flask.full { opacity:1; border-color:var(--ac); background:rgba(0,229,255,0.18); box-shadow:0 0 8px var(--glow); }
+.ach-card { background:rgba(2,6,18,0.75); border:1px solid var(--bdd); border-radius:8px; padding:8px; opacity:0.48; }
+.ach-card.unlocked { opacity:1; border-color:var(--ac); box-shadow:0 0 10px var(--glow); }
+.bgm-btn { text-align:left; padding:8px 10px; display:flex; align-items:center; justify-content:space-between; }
+.pin-dots { display:flex; justify-content:center; gap:12px; margin:14px 0; }
+.pin-dot { width:14px; height:14px; border-radius:50%; border:2px solid var(--ac); }
+.pin-dot.fill { background:var(--ac); box-shadow:0 0 10px var(--glow); }
+.pin-pad { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; max-width:240px; margin:0 auto; }
+.pin-key { padding:14px; border-radius:10px; border:1px solid var(--bd); background:rgba(0,229,255,0.08); color:var(--txt); font-size:18px; font-weight:900; cursor:pointer; }
+.pin-key:active { background:var(--ac); color:#020617; }
+#entryOverlay, #cutscene, #alarmModal, #pinOverlay, #emergModal, #idModal {
+  position:fixed; inset:0; z-index:994; background:radial-gradient(circle at 50% 40%, #071936 0%, #02040a 82%);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; text-align:center; color:#e2f3ff;
+}
+#pinOverlay { z-index:999; }
+#alarmModal, #emergModal { background:radial-gradient(circle at 50% 40%, #2a0410 0%, #050105 84%); z-index:997; }
+.magic-ring { position:absolute; width:270px; height:270px; border-radius:50%; border:1.5px dashed rgba(0,229,255,0.45); animation:spinRing 16s linear infinite; pointer-events:none; }
+@keyframes spinRing { 0%{transform:rotate(0deg);} 100%{transform:rotate(360deg);} }
+.entry-card { position:relative; z-index:2; width:100%; max-width:355px; background:rgba(5,12,28,0.95); border:1.5px solid var(--ac); border-radius:14px; padding:18px 16px; box-shadow:0 0 36px var(--glow); }
+.shock-ring { width:160px; height:160px; border-radius:50%; border:3px solid var(--ac); box-shadow:0 0 42px var(--glow); display:flex; align-items:center; justify-content:center; animation:shockPulse 1.1s ease-out infinite; }
+@keyframes shockPulse { 0%{transform:scale(0.86);opacity:1;} 100%{transform:scale(1.20);opacity:0.25;} }
+#pocketOverlay { position:fixed; inset:0; z-index:980; background:#000; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:46px 24px 54px; user-select:none; -webkit-user-select:none; }
+.p-dim { color:rgba(160,210,235,0.38); text-align:center; }
+.unlock-btn { position:relative; width:100%; max-width:290px; padding:18px 14px; border-radius:14px; border:1px solid rgba(0,229,255,0.28); background:#05080f; color:rgba(0,229,255,0.65); font-size:12px; font-weight:800; letter-spacing:1.4px; overflow:hidden; text-align:center; cursor:pointer; }
+.unlock-prog { position:absolute; left:0; top:0; bottom:0; width:0%; background:rgba(0,229,255,0.28); pointer-events:none; }
+.float-pop { position:fixed; left:50%; top:46%; transform:translateX(-50%); z-index:900; font-weight:900; font-size:18px; color:var(--ac); text-shadow:0 0 14px var(--glow); pointer-events:none; animation:popUp 1.05s ease-out forwards; }
+@keyframes popUp { 0%{opacity:0;transform:translate(-50%,10px) scale(0.85);} 20%{opacity:1;transform:translate(-50%,-6px) scale(1.08);} 100%{opacity:0;transform:translate(-50%,-64px) scale(0.95);} }
+.toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); z-index:999; background:rgba(4,12,26,0.96); border:1px solid var(--ac); color:#e2f3ff; padding:9px 14px; border-radius:99px; font-size:11px; font-weight:700; box-shadow:0 0 18px var(--glow); max-width:92%; text-align:center; }
+</style>
+</head>
+<body>
+<canvas id="manaCanvas"></canvas>
+
+<!-- PIN LOCK OVERLAY -->
+<div id="pinOverlay" class="hidden">
+  <div class="entry-card">
+    <div class="mono xs glow" style="letter-spacing:2px;">A.J SECURITY GATE</div>
+    <h2 class="aj-title mt6" style="font-size:22px;">ENTER PIN</h2>
+    <div id="pinDots" class="pin-dots"><span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot"></span></div>
+    <div class="pin-pad">
+      <button class="pin-key" onclick="pinTap('1')">1</button><button class="pin-key" onclick="pinTap('2')">2</button><button class="pin-key" onclick="pinTap('3')">3</button>
+      <button class="pin-key" onclick="pinTap('4')">4</button><button class="pin-key" onclick="pinTap('5')">5</button><button class="pin-key" onclick="pinTap('6')">6</button>
+      <button class="pin-key" onclick="pinTap('7')">7</button><button class="pin-key" onclick="pinTap('8')">8</button><button class="pin-key" onclick="pinTap('9')">9</button>
+      <button class="pin-key" onclick="pinClear()" style="font-size:12px;">CLR</button><button class="pin-key" onclick="pinTap('0')">0</button><button class="pin-key" onclick="pinBack()" style="font-size:14px;">&#9003;</button>
+    </div>
+  </div>
+</div>
+
+<!-- ENTRY OVERLAY -->
+<div id="entryOverlay">
+  <div class="magic-ring"></div>
+  <div class="entry-card">
+    <div style="display:flex;justify-content:center;margin-bottom:10px;"><div class="bang">!</div></div>
+    <div class="mono xs glow" style="letter-spacing:2.5px;">SYSTEM NOTIFICATION</div>
+    <div class="aj-title mt6" style="font-size:28px;">A.J</div>
+    <p style="font-size:12.5px;line-height:1.5;color:#cde8ff;margin:10px 0 16px;">Welcome Hunter <b>A.J</b>. Complete all 4 Daily Quests (Run, Push-ups, Sit-ups, Squats) to earn <b>XP</b>, <b>Gold</b> &amp; <b>Stat Points</b>.</p>
+    <button class="btn btn-pri" onclick="enterSystem(true)" style="padding:13px;font-size:12px;">&#9889; ACCEPT &mdash; ENTER A.J</button>
+    <button class="btn mt8" onclick="enterSystem(false)" style="border-color:rgba(255,255,255,0.18);background:transparent;color:#7aa2c4;">SKIP &#10005;</button>
+  </div>
+</div>
+
+<!-- CUTSCENE -->
+<div id="cutscene" class="hidden" onclick="closeCutscene()">
+  <div class="shock-ring"><div id="cutIco" style="font-size:48px;">&#9889;</div></div>
+  <div id="cutSub" class="mono xs glow mt10" style="letter-spacing:3px;">A.J OVERRIDE</div>
+  <h1 id="cutTitle" class="aj-title" style="font-size:30px;margin:6px 0;">ARISE</h1>
+  <p id="cutMsg" style="font-size:13px;color:#cde8ff;max-width:300px;line-height:1.45;"></p>
+  <div class="xs mt10" style="opacity:0.65;">TAP ANYWHERE TO CONTINUE</div>
+</div>
+
+<!-- SUDDEN QUEST MODAL -->
+<div id="emergModal" class="hidden">
+  <div class="entry-card" style="border-color:#ff2a55;box-shadow:0 0 42px rgba(255,42,85,0.55);">
+    <span class="pill bad">EMERGENCY QUEST</span>
+    <h2 id="emTitle" style="font-size:20px;color:#ff4d6d;margin:8px 0;">20 PUSH-UPS IN 60 SEC</h2>
+    <div id="emTimer" class="mono" style="font-size:38px;font-weight:900;color:#fff;">60s</div>
+    <div class="mono xs mt6" style="color:#fde68a;">REWARD: +60 GOLD &bull; 250 CRIT DMG</div>
+    <div class="mono mt8" style="font-size:16px;font-weight:900;">PROGRESS: <span id="emProg" class="glow">0 / 20</span></div>
+    <button class="btn btn-pri mt10" onclick="emTap()" style="padding:14px;font-size:13px;">&#9889; TAP +1 REP</button>
+    <button class="btn btn-bad mt8" onclick="closeEmerg(false)">ABANDON</button>
+  </div>
+</div>
+
+<!-- ID CARD MODAL -->
+<div id="idModal" class="hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="entry-card" style="max-width:380px;">
+    <div class="mono xs glow">HUNTER ASSOCIATION LICENSE</div>
+    <canvas id="idCanvas" width="600" height="360" style="width:100%;border-radius:10px;border:1px solid var(--ac);margin:10px 0;"></canvas>
+    <div class="g2"><button class="btn btn-pri" onclick="downloadIdPng()">&#11015;&#65039; SAVE PNG</button><button class="btn" onclick="$('idModal').classList.add('hidden')">CLOSE</button></div>
+  </div>
+</div>
+
+<!-- ULTRA-LOUD ALARM MODAL -->
+<div id="alarmModal" class="hidden">
+  <div class="entry-card" style="border-color:#ff2a55;box-shadow:0 0 42px rgba(255,42,85,0.6);">
+    <div style="font-size:44px;">&#9200;</div>
+    <div class="mono xs" style="color:#fda4af;letter-spacing:2.5px;margin-top:6px;">A.J MAX-VOLUME ALARM</div>
+    <h2 id="alarmModalTitle" style="font-size:20px;color:#ff4d6d;margin:8px 0;">DAILY QUEST — ARISE!</h2>
+    <div id="alarmModalTime" class="mono" style="font-size:32px;font-weight:900;color:#fff;margin-bottom:14px;">06:00</div>
+    <button class="btn btn-pri" onclick="dismissAlarm()">&#9889; DISMISS &amp; TRAIN</button>
+    <button class="btn btn-bad mt8" onclick="snoozeAlarm()">&#9201; SNOOZE 5 MIN</button>
+  </div>
+</div>
+
+<!-- POCKET MODE -->
+<div id="pocketOverlay" class="hidden">
+  <div class="p-dim"><div class="mono" style="font-size:11px;letter-spacing:2px;">A.J POCKET LOCK</div><div id="pClock" class="mono" style="font-size:32px;font-weight:900;margin-top:4px;">00:00</div><div id="pWake" class="mono" style="font-size:10px;margin-top:4px;">WAKE LOCK: ACTIVE</div></div>
+  <div class="p-dim" style="width:100%;max-width:300px;">
+    <div class="g2"><div><div class="mono" style="font-size:10px;">DISTANCE</div><div id="pDist" class="mono" style="font-size:24px;font-weight:900;">0.00 km</div></div><div><div class="mono" style="font-size:10px;">STEPS</div><div id="pSteps" class="mono" style="font-size:24px;font-weight:900;">0</div></div></div>
+    <div id="pSig" class="mono" style="font-size:10px;margin-top:14px;">KALMAN GPS + ANTI-SHAKE ON</div>
+  </div>
+  <div class="unlock-btn" ontouchstart="startUnlock(event)" ontouchend="cancelUnlock()" ontouchcancel="cancelUnlock()" onmousedown="startUnlock(event)" onmouseup="cancelUnlock()" onmouseleave="cancelUnlock()">
+    <div id="unlockProg" class="unlock-prog"></div><span style="position:relative;z-index:2;">&#128275; HOLD 2 SEC TO UNLOCK</span>
+  </div>
+</div>
+
+<div class="wrap">
+  <!-- HEADER -->
+  <div class="card" style="padding:10px 12px;">
+    <div id="scanBar" class="scanline"></div>
+    <div class="row">
+      <div class="row" style="gap:10px;">
+        <div class="bang">!</div>
+        <div>
+          <div class="aj-title">A.J</div>
+          <div class="mono xs">&#129689; <span id="hGold" style="color:var(--warn);">50</span>G &bull; APEX SYSTEM</div>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div class="row" style="justify-content:flex-end;gap:6px;"><span class="mono" style="font-size:11px;font-weight:800;">LVL <span id="hLvl">1</span></span><span id="hRank" class="rank-pill">E-RANK</span></div>
+        <div class="xs mono mt6">&#128293; <span id="hStreak">0</span>d &bull; <span id="hDate">---</span></div>
+      </div>
+    </div>
+    <div class="row mt8">
+      <span class="xs mono">XP <span id="hXp">0/100</span></span>
+      <div class="row" style="gap:4px;">
+        <button id="qBgm" class="btn btn-sm" onclick="toggleQuick('bgm')">BGM</button>
+        <button id="qTrack" class="btn btn-sm" onclick="nextBgmTrack()">&#127925; 1/5 &#9197;</button>
+        <button id="qSfx" class="btn btn-sm" onclick="toggleQuick('sfx')">SFX</button>
+      </div>
+    </div>
+    <div class="bar-bg mt6"><div id="hXpBar" class="bar-fill"></div></div>
+  </div>
+
+  <!-- 7-PAGE CLEAN NAVIGATION -->
+  <div class="nav">
+    <button id="nav-quest" class="nav-btn active" onclick="switchTab('quest')"><span class="ico">&#9876;&#65039;</span>QUEST</button>
+    <button id="nav-track" class="nav-btn" onclick="switchTab('track')"><span class="ico">&#128506;&#65039;</span>TRACK</button>
+    <button id="nav-train" class="nav-btn" onclick="switchTab('train')"><span class="ico">&#128293;</span>TRAIN</button>
+    <button id="nav-stats" class="nav-btn" onclick="switchTab('stats')"><span class="ico">&#128202;</span>STATS</button>
+    <button id="nav-cal" class="nav-btn" onclick="switchTab('cal')"><span class="ico">&#128197;</span>CAL</button>
+    <button id="nav-domain" class="nav-btn" onclick="switchTab('domain')"><span class="ico">&#128081;</span>DOMAIN</button>
+    <button id="nav-system" class="nav-btn" onclick="switchTab('system')"><span class="ico">&#9881;&#65039;</span>A.J</button>
+  </div>
+
+  <div class="card dlg-bar" onclick="nextDialogue()">
+    <div class="bang" style="width:26px;height:26px;font-size:13px;">&#9889;</div>
+    <div style="flex:1;">
+      <div class="row"><span class="mono xs glow" style="font-size:9px;">A.J LOG</span><span id="hBgmName" class="mono xs" style="font-size:9px;">&#127925; SHADOW MONARCH</span></div>
+      <div id="dlgTxt" class="dlg-txt">Awaiting Player authorization...</div>
+    </div>
+  </div>
+
+  <!-- ==================== PAGE 1: QUEST ==================== -->
+  <div id="tab-quest">
+    <div class="card">
+      <div class="row">
+        <div><span class="pill">DAILY QUEST</span><span class="mono xs" style="margin-left:5px;">DAY <span id="qDay">1</span></span></div>
+        <div style="text-align:right;"><div class="mono" style="font-size:12px;font-weight:900;color:var(--warn);">&#8987; <span id="qTimer">00:00:00</span></div><div class="xs" style="font-size:9px;">XP ONLY AT 100% ALL 4</div></div>
+      </div>
+      <div class="row mt6"><div style="font-size:16px;font-weight:900;">STRENGTH TRAINING</div><span id="qPctPill" class="pill">0%</span></div>
+      <div class="q-item">
+        <div class="row"><div style="font-size:12px;font-weight:800;">&#127939; RUNNING</div><div class="mono" style="font-size:12px;font-weight:800;"><span id="qRunVal" class="glow">0</span> / <span id="qRunGoal">4000</span>m</div></div>
+        <div class="row xs mono mt6"><span id="qRunSub">0.00 km &bull; 0 steps</span><span>+200m/day</span></div>
+        <div class="bar-bg mt6"><div id="qRunBar" class="bar-fill"></div></div>
+      </div>
+      <div class="q-item"><div class="row"><div style="font-size:12px;font-weight:800;">&#128170; PUSH-UPS</div><div class="mono" style="font-size:12px;font-weight:800;"><span id="qPushVal" class="glow">0</span> / <span id="qPushGoal">100</span></div></div><div class="bar-bg mt6"><div id="qPushBar" class="bar-fill"></div></div></div>
+      <div class="q-item"><div class="row"><div style="font-size:12px;font-weight:800;">&#129496; SIT-UPS</div><div class="mono" style="font-size:12px;font-weight:800;"><span id="qSitVal" class="glow">0</span> / <span id="qSitGoal">100</span></div></div><div class="bar-bg mt6"><div id="qSitBar" class="bar-fill"></div></div></div>
+      <div class="q-item"><div class="row"><div style="font-size:12px;font-weight:800;">&#129461; SQUATS</div><div class="mono" style="font-size:12px;font-weight:800;"><span id="qSquatVal" class="glow">0</span> / <span id="qSquatGoal">100</span></div></div><div class="bar-bg mt6"><div id="qSquatBar" class="bar-fill"></div></div></div>
+      <button id="claimBtn" class="btn mt10" onclick="claimDailyQuest()">FINISH ALL 4 TO UNLOCK XP</button>
+      <div class="g2 mt8">
+        <button class="btn" style="border-color:rgba(255,42,85,0.55);color:#fda4af;background:rgba(255,42,85,0.10);" onclick="resetRunPush()">&#128260; RESET RUN+PUSH</button>
+        <button class="btn btn-warn" onclick="startEmergencyQuest()">&#128680; SUDDEN QUEST</button>
+      </div>
+    </div>
+    <div class="g2">
+      <button class="btn btn-pri" onclick="switchTab('track')">&#128506;&#65039; OPEN GPS &amp; AI CAM</button>
+      <button class="btn" onclick="switchTab('train')">&#128293; WARM-UP &amp; DIET</button>
+    </div>
+    <div id="devBar" class="card mt10">
+      <div class="row"><span class="xs mono" style="color:var(--warn);font-weight:800;">&#128275; DEV TEST BAR</span><span class="xs mono">TESTING</span></div>
+      <div class="g4 mt8">
+        <button class="btn btn-sm" style="width:100%;" onclick="addRun(500,650)">+500M</button>
+        <button class="btn btn-sm" style="width:100%;" onclick="addPush(25)">+25 P</button>
+        <button class="btn btn-sm" style="width:100%;" onclick="addSitup(25)">+25 SI</button>
+        <button class="btn btn-sm" style="width:100%;" onclick="addSquat(25)">+25 SQ</button>
+      </div>
+      <div class="g3 mt6">
+        <button class="btn btn-sm" style="width:100%;" onclick="runDemoRoute()">&#128506;&#65039; DEMO</button>
+        <button class="btn btn-sm btn-ok" style="width:100%;" onclick="completeAllDev()">FILL 4</button>
+        <button class="btn btn-sm btn-bad" style="width:100%;" onclick="triggerPenalty()">PENALTY</button>
+      </div>
+      <button class="btn btn-sm mt6" style="width:100%;" onclick="simulateNextDay()">&#9193; SIMULATE NEXT DAY</button>
+    </div>
+  </div>
+
+  <!-- ==================== PAGE 2: TRACK (GPS + ANTI-SHAKE AI CAM) ==================== -->
+  <div id="tab-track" class="hidden">
+    <div class="card">
+      <div class="row">
+        <div><div class="xs mono glow">KALMAN FUSION GPS ENGINE</div><div style="font-size:13px;font-weight:900;">PRO ROUTE &amp; TELEMETRY</div></div>
+        <div class="row" style="gap:4px;"><span id="gpsTimePill" class="pill mono">00:00</span><span id="gpsPill" class="pill">OFFLINE</span></div>
+      </div>
+      <div class="map-box mt8">
+        <canvas id="mapCanvas"></canvas>
+        <div class="map-hud">
+          <div class="row" style="gap:4px;"><button id="btnMapDark" class="btn btn-sm on" onclick="setMapMode('dark')">DARK</button><button id="btnMapRadar" class="btn btn-sm" onclick="setMapMode('radar')">RADAR</button></div>
+          <span id="gpsSigPill" class="pill mono" style="background:rgba(3,7,18,0.88);">SIG: --</span>
+        </div>
+        <div class="map-bot">
+          <span id="mapCoord" class="pill mono" style="background:rgba(3,7,18,0.85);">NO FIX</span>
+          <div class="map-ctrls"><button class="btn btn-sm" onclick="zoomMap(1)">+</button><button class="btn btn-sm" onclick="zoomMap(-1)">-</button><button class="btn btn-sm" onclick="recenterMap()">&#127919;</button></div>
+        </div>
+      </div>
+      <div class="g4 mt8">
+        <div class="stat-box"><div class="xs">SPEED</div><div id="tSpeed" class="stat-val mono">0.0</div><div class="xs">km/h</div></div>
+        <div class="stat-box"><div class="xs">PACE</div><div id="tPace" class="stat-val mono">--:--</div><div class="xs">min/km</div></div>
+        <div class="stat-box"><div class="xs">MAX SPD</div><div id="tMaxSpd" class="stat-val mono">0.0</div><div class="xs">km/h</div></div>
+        <div class="stat-box"><div class="xs">ALT/KCAL</div><div id="tAltKcal" class="stat-val mono">0m/0</div><div class="xs">elev/cal</div></div>
+      </div>
+      <div id="splitBox" class="q-item xs mono hidden"></div>
+      <div class="g2 mt8"><button id="gpsBtn" class="btn" onclick="toggleGpsSteps()">&#128099; START PRO GPS</button><button class="btn btn-pri" onclick="enterPocketMode()">&#128274; POCKET MODE</button></div>
+      <div class="row xs mono mt6"><span>Kalman Filter &bull; Speed Colors</span><span id="wakePill" class="pill">WAKE: STANDBY</span></div>
+    </div>
+
+    <div class="card">
+      <div class="row"><div><div class="xs mono glow">ANTI-SHAKE AI FORM ENGINE</div><div style="font-size:13px;font-weight:900;">AI REP COUNTER</div></div><span id="camPill" class="pill">CAM OFF</span></div>
+      <div class="g3 mt8">
+        <button id="ex-pushup" class="btn btn-sm on" style="width:100%;" onclick="setCamEx('pushup')">PUSH-UPS</button>
+        <button id="ex-situp" class="btn btn-sm" style="width:100%;" onclick="setCamEx('situp')">SIT-UPS</button>
+        <button id="ex-squat" class="btn btn-sm" style="width:100%;" onclick="setCamEx('squat')">SQUATS</button>
+      </div>
+      <div class="g2 mt6">
+        <button id="eng-skel" class="btn btn-sm on" style="width:100%;" onclick="setCamEngine('skeleton')">&#129460; AI SKELETON</button>
+        <button id="eng-opt" class="btn btn-sm" style="width:100%;" onclick="setCamEngine('optical')">&#128225; OFFLINE OPTICAL</button>
+      </div>
+      <div id="camBox" class="hidden">
+        <div class="cam-wrap">
+          <video id="camVid" playsinline muted autoplay></video>
+          <canvas id="skelCanvas"></canvas>
+          <div class="cam-hud mono"><span id="camAngleHud" class="glow">ANGLE: --</span><span id="camStateHud">READY</span></div>
+          <div id="camCoach" class="cam-coach mono">PLACE PHONE STEADY ON FLOOR</div>
+        </div>
+        <div class="g3 mt8">
+          <div class="stat-box"><div class="xs">FORM SCORE</div><div id="camFormVal" class="stat-val mono">100%</div></div>
+          <div class="stat-box"><div class="xs">REP TEMPO</div><div id="camTempoVal" class="stat-val mono">--s</div></div>
+          <div class="stat-box"><div class="xs">SESSION</div><div id="camSessVal" class="stat-val mono">0</div></div>
+        </div>
+        <div class="row xs mono mt6"><span>DEPTH GAUGE (ANTI-SHAKE LOCK)</span><span id="camDepth">0%</span></div>
+        <div class="gauge-wrap"><div id="camBar" class="gauge-bar"></div><div id="camLine" class="gauge-line"></div></div>
+        <div class="g3 mt6">
+          <button id="sens-low" class="btn btn-sm" style="width:100%;" onclick="setCamSens('low')">STRICT</button>
+          <button id="sens-med" class="btn btn-sm on" style="width:100%;" onclick="setCamSens('med')">NORMAL</button>
+          <button id="sens-high" class="btn btn-sm" style="width:100%;" onclick="setCamSens('high')">EASY</button>
+        </div>
+        <div class="g2 mt6"><button class="btn btn-sm" style="width:100%;" onclick="recalCam()">&#127919; RE-CALIBRATE</button><button class="btn btn-sm" style="width:100%;" onclick="flipCam()">&#128260; FLIP CAM</button></div>
+      </div>
+      <div class="g2 mt8"><button id="camBtn" class="btn" onclick="toggleCam()">&#128247; START AI CAM</button><button class="btn" onclick="manualRep(1)">+1 MANUAL REP</button></div>
+      <button class="tap-pad" onclick="manualRep(1)">&#128071; NOSE / CHEST TAP (+1 REP)</button>
+    </div>
+  </div>
+
+  <!-- ==================== PAGE 3: TRAIN (TIMERS, DIET, RECOVERY) ==================== -->
+  <div id="tab-train" class="hidden">
+    <div class="card">
+      <div class="row"><div><div class="xs mono glow">GUIDED TIMERS</div><div id="timerLbl" style="font-size:13px;font-weight:900;">REST / WARM-UP / HIIT</div></div><div id="restDisp" class="mono glow" style="font-size:22px;font-weight:900;">00:00</div></div>
+      <div class="g2 mt8"><button class="btn btn-pri" onclick="startWarmup()">&#128293; 3-MIN WARM-UP</button><button class="btn btn-warn" onclick="startHiit()">&#9889; HIIT 40/20</button></div>
+      <div class="g4 mt6">
+        <button class="btn btn-sm" style="width:100%;" onclick="startRest(30)">30s</button>
+        <button class="btn btn-sm" style="width:100%;" onclick="startRest(60)">60s</button>
+        <button class="btn btn-sm" style="width:100%;" onclick="startRest(90)">90s</button>
+        <button class="btn btn-sm btn-bad" style="width:100%;" onclick="stopAllTimers()">STOP</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row"><div class="xs mono glow">DAILY NUTRITION &amp; HYDRATION</div><button class="btn btn-sm" onclick="resetNutrition()">&#8634;</button></div>
+      <div class="q-item">
+        <div class="row xs mono"><span>PROTEIN</span><span><b id="nutProVal" class="glow">0</b> / <span id="nutProGoal">122</span>g</span></div>
+        <div class="bar-bg mt6"><div id="nutProBar" class="bar-fill ok"></div></div>
+        <div class="g2 mt6"><button class="btn btn-sm" style="width:100%;" onclick="addNut('pro',10)">+10g</button><button class="btn btn-sm" style="width:100%;" onclick="addNut('pro',25)">+25g</button></div>
+      </div>
+      <div class="q-item">
+        <div class="row xs mono"><span>CALORIES</span><span><b id="nutCalVal" class="glow">0</b> / <span id="nutCalGoal">2176</span> kcal</span></div>
+        <div class="bar-bg mt6"><div id="nutCalBar" class="bar-fill warn"></div></div>
+        <div class="g2 mt6"><button class="btn btn-sm" style="width:100%;" onclick="addNut('cal',250)">+250</button><button class="btn btn-sm" style="width:100%;" onclick="addNut('cal',500)">+500</button></div>
+      </div>
+      <div class="row xs mono mt8"><span>MANA WATER</span><span id="waterTxt">0 / 8 GLASSES</span></div>
+      <div id="waterRow" class="flask-row"></div>
+    </div>
+
+    <div class="card">
+      <div class="row"><div class="xs mono glow">SLEEP &amp; RECOVERY ADVISOR</div><span id="recPill" class="pill ok">READY</span></div>
+      <div class="g2 mt8">
+        <div><div class="xs mono">SLEEP (HOURS)</div><input id="inSleep" class="inp mt6" type="number" step="0.5" value="7.5"></div>
+        <div><div class="xs mono">FATIGUE (0-100%)</div><input id="inFat" class="inp mt6" type="number" value="20"></div>
+      </div>
+      <button class="btn mt8" onclick="saveRecovery()">ANALYZE RECOVERY</button>
+      <div id="recTxt" class="q-item xs mono mt6">Sleep 7.5h • Fatigue 20% → HEAVY TRAINING READY.</div>
+    </div>
+  </div>
+
+  <!-- ==================== PAGE 4: STATS ==================== -->
+  <div id="tab-stats" class="hidden">
+    <div class="card">
+      <div class="row">
+        <div><div class="xs mono glow">HUNTER PROFILE</div><div id="stName" class="aj-title" style="font-size:20px;">A.J</div><div class="xs mono mt6"><span id="stTitle">AWAKENED PLAYER</span> &bull; <span id="stJob">HUNTER</span></div></div>
+        <div style="text-align:right;"><div id="stRank" class="rank-pill">E-RANK</div><div class="xs mono mt6">BMI: <span id="stBmi" class="glow">22.0</span></div></div>
+      </div>
+      <div class="g4 mt10">
+        <div class="stat-box"><div class="xs">CAREER KM</div><div id="cKm" class="stat-val mono">0.0</div></div>
+        <div class="stat-box"><div class="xs">PUSH-UPS</div><div id="cPush" class="stat-val mono">0</div></div>
+        <div class="stat-box"><div class="xs">SIT-UPS</div><div id="cSit" class="stat-val mono">0</div></div>
+        <div class="stat-box"><div class="xs">SQUATS</div><div id="cSquat" class="stat-val mono">0</div></div>
+      </div>
+      <button class="btn btn-pri mt10" onclick="openIdCard()">&#129706; DOWNLOAD HUNTER LICENSE (PNG)</button>
+    </div>
+
+    <div class="card">
+      <div class="row"><div class="xs mono glow">ATTRIBUTES &amp; MANUAL POINTS</div><span id="statPtsPill" class="pill warn">FREE PTS: 5</span></div>
+      <div style="display:flex;justify-content:center;margin:6px 0;"><svg id="radarSvg" width="230" height="190" viewBox="0 0 230 190"></svg></div>
+      <div class="g5">
+        <div class="stat-box"><div class="xs">STR</div><div id="sStr" class="stat-val mono">10</div><button class="plus-btn" onclick="spendStat('str')">+</button></div>
+        <div class="stat-box"><div class="xs">AGI</div><div id="sAgi" class="stat-val mono">10</div><button class="plus-btn" onclick="spendStat('agi')">+</button></div>
+        <div class="stat-box"><div class="xs">VIT</div><div id="sVit" class="stat-val mono">10</div><button class="plus-btn" onclick="spendStat('vit')">+</button></div>
+        <div class="stat-box"><div class="xs">SEN</div><div id="sSen" class="stat-val mono">10</div><button class="plus-btn" onclick="spendStat('sen')">+</button></div>
+        <div class="stat-box"><div class="xs">INT</div><div id="sInt" class="stat-val mono">10</div><button class="plus-btn" onclick="spendStat('intl')">+</button></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="xs mono glow">PERSONAL RECORDS (PRs)</div>
+      <div class="g4 mt8">
+        <div class="stat-box"><div class="xs">BEST RUN</div><div id="prRun" class="stat-val mono">0.0k</div></div>
+        <div class="stat-box"><div class="xs">BEST PUSH</div><div id="prPush" class="stat-val mono">0</div></div>
+        <div class="stat-box"><div class="xs">TOP SPD</div><div id="prSpd" class="stat-val mono">0.0</div></div>
+        <div class="stat-box"><div class="xs">BEST FORM</div><div id="prForm" class="stat-val mono">--%</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="xs mono glow">BODY MEASUREMENTS &amp; WEIGHT GRAPH</div>
+      <div class="g4 mt8">
+        <div><div class="xs mono">WT(kg)</div><input id="bWt" class="inp mt6" type="number" step="0.2"></div>
+        <div><div class="xs mono">CHEST</div><input id="bCh" class="inp mt6" type="number"></div>
+        <div><div class="xs mono">WAIST</div><input id="bWa" class="inp mt6" type="number"></div>
+        <div><div class="xs mono">ARMS</div><input id="bAr" class="inp mt6" type="number"></div>
+      </div>
+      <button class="btn btn-ok mt8" onclick="logBody()">+ LOG MEASUREMENTS</button>
+      <svg id="wtSvg" width="100%" height="90" viewBox="0 0 320 90" style="margin-top:8px;background:rgba(2,6,18,0.65);border-radius:8px;border:1px solid var(--bdd);"></svg>
+    </div>
+  </div>
+
+  <!-- ==================== PAGE 5: CAL (CALENDAR & ARCHIVE) ==================== -->
+  <div id="tab-cal" class="hidden">
+    <div class="card">
+      <div class="row">
+        <button class="btn btn-sm" onclick="shiftCal(-1)">&#9664;</button>
+        <div style="text-align:center;"><div class="xs mono glow">TRAINING CALENDAR</div><div id="calTitle" class="mono" style="font-size:13px;font-weight:900;">NOV 2026</div></div>
+        <button class="btn btn-sm" onclick="shiftCal(1)">&#9654;</button>
+      </div>
+      <div id="calGrid" class="cal-grid"></div>
+      <div id="calDetail" class="q-item xs mono mt8">Tap any date to inspect workout record.</div>
+    </div>
+    <div class="card"><div class="xs mono glow">UNLOCKABLE TITLES &amp; ACHIEVEMENTS</div><div id="achGrid" class="g2 mt8"></div></div>
+    <div class="card"><div class="xs mono glow">DAILY ARCHIVE LOGS</div><div id="logList" class="mt8"></div></div>
+  </div>
+
+  <!-- ==================== PAGE 6: DOMAIN (EXAM, BOSS, SHOP, SHADOWS) ==================== -->
+  <div id="tab-domain" class="hidden">
+    <div class="card">
+      <div class="row"><span class="pill warn">RANK-UP EXAM</span><span id="exRankPill" class="pill">NEXT: D-RANK</span></div>
+      <div id="exDesc" class="xs mono mt8">Need Level 2 + Today: 2000m Run &amp; 50 Push-ups.</div>
+      <button class="btn btn-warn mt8" onclick="attemptRankExam()">&#9889; TAKE RANK-UP EXAM</button>
+    </div>
+    <div class="card">
+      <div class="row"><span class="pill bad">DUNGEON GATE RAID</span><span class="xs mono">BOSS <span id="bIdx">1</span> / 5</span></div>
+      <div class="row mt8" style="align-items:flex-start;">
+        <div id="bossArt" class="art-slot"></div>
+        <div style="flex:1;">
+          <div id="bName" style="font-size:15px;font-weight:900;color:#f472b6;">STEEL-FANGED LYCAN</div>
+          <div id="bDesc" class="xs mt6">Defeat Boss for +80 Gold.</div>
+          <div class="row xs mono mt8"><span>BOSS HP</span><span id="bHpTxt">800 / 800</span></div>
+          <div class="bar-bg mt6"><div id="bHpBar" class="bar-fill bad"></div></div>
+        </div>
+      </div>
+      <div class="xs mono mt8" style="text-align:center;">BOSSES SLAIN: <b id="bKills" class="glow">0</b></div>
+    </div>
+    <div class="card">
+      <div class="row"><div><div class="xs mono glow">A.J SYSTEM SHOP</div><div style="font-size:14px;font-weight:900;">EXCHANGE GOLD</div></div><span class="pill warn">&#129689; <span id="shopGold">50</span> G</span></div>
+      <div class="q-item row"><div><b style="font-size:12px;">&#10052;&#65039; Streak Freeze Potion</b><div class="xs">Owned: <span id="invFreeze">0</span></div></div><button class="btn btn-sm btn-warn" onclick="buyItem('freeze',120)">120 G</button></div>
+      <div class="q-item row"><div><b style="font-size:12px;">&#127915; Penalty Clear Ticket</b><div class="xs">Owned: <span id="invTicket">0</span></div></div><div class="row" style="gap:4px;"><button class="btn btn-sm btn-warn" onclick="buyItem('ticket',100)">100 G</button><button class="btn btn-sm btn-ok" onclick="useTicket()">USE</button></div></div>
+      <div class="q-item row"><div><b style="font-size:12px;">&#128081; Royal Gold Theme</b><div class="xs">Unlocks GOLD accent</div></div><button id="buyGoldBtn" class="btn btn-sm btn-warn" onclick="buyItem('goldTheme',200)">200 G</button></div>
+      <div class="q-item row"><div><b style="font-size:12px;">&#9876;&#65039; Title: ARMY OF ONE</b><div class="xs">Prestige Hunter Title</div></div><button id="buyTitleBtn" class="btn btn-sm btn-warn" onclick="buyItem('titleOne',150)">150 G</button></div>
+    </div>
+    <div class="card">
+      <div class="row"><div><div class="xs mono glow">MONARCH'S DOMAIN</div><div style="font-size:14px;font-weight:900;">SHADOW ARMY</div></div><span id="shCount" class="pill">0 / 5</span></div>
+      <div id="shadowList" class="mt8"></div>
+    </div>
+  </div>
+
+  <!-- ==================== PAGE 7: A.J (SETTINGS, ALARM, THEMES, PIN) ==================== -->
+  <div id="tab-system" class="hidden">
+    <!-- ULTRA-LOUD ALARM + 5 TONES + SONG IMPORT -->
+    <div class="card">
+      <div class="row"><div class="xs mono glow">ULTRA-LOUD ALARM &amp; CUSTOM SONG</div><span id="alarmPill" class="pill">OFF</span></div>
+      <div class="g2 mt8">
+        <div><div class="xs mono">ALARM TIME</div><input id="inAlarmTime" class="inp mt6" type="time" value="06:00"></div>
+        <div><div class="xs mono">ALERT LABEL</div><input id="inAlarmLbl" class="inp mt6" type="text" value="DAILY QUEST — ARISE!"></div>
+      </div>
+      <div class="mt8">
+        <div class="xs mono">SELECT ALARM TONE (5 BUILT-IN + CUSTOM SONG)</div>
+        <select id="alarmToneSel" class="mt6" onchange="setAlarmTone(this.value)">
+          <option value="0">1. RED ALERT SIREN (ULTRA LOUD)</option>
+          <option value="1">2. MONARCH WAR HORN (HEAVY)</option>
+          <option value="2">3. TACTICAL RADAR PULSE</option>
+          <option value="3">4. CYBER OVERDRIVE BEEP</option>
+          <option value="4">5. ARISE BATTLE BELLS</option>
+          <option value="custom">6. IMPORTED CUSTOM SONG</option>
+        </select>
+      </div>
+      <div class="q-item mt8">
+        <div class="xs mono">IMPORT SONG FROM PHONE (MP3 / WAV / M4A)</div>
+        <input id="alarmFile" type="file" accept="audio/*" class="mt6" style="font-size:11px;color:var(--txt);" onchange="importAlarmSong(this)">
+        <div id="alarmSongTxt" class="xs mono mt6" style="color:var(--ok);">No custom song imported yet.</div>
+      </div>
+      <div class="mt8"><div class="row xs mono"><span>ALARM VOLUME (BOOSTED)</span><span id="vAlmTxt">100%</span></div><input id="slAlm" type="range" min="20" max="100" value="100" oninput="setVol('alm',this.value)"></div>
+      <div class="g2 mt8"><button id="alarmToggleBtn" class="btn btn-ok" onclick="saveToggleAlarm()">&#9200; ENABLE ALARM</button><button class="btn btn-bad" onclick="triggerAlarm(true)">&#128266; TEST LOUD ALARM</button></div>
+    </div>
+
+    <!-- SYSTEM TOGGLES: VIBRATION, FX, PACER, PIN -->
+    <div class="card">
+      <div class="xs mono glow">SYSTEM CONTROLS &amp; APP LOCK</div>
+      <div class="g3 mt8">
+        <button id="togVib" class="btn btn-sm on" style="width:100%;" onclick="togglePref('vibOn')">VIBRATION: ON</button>
+        <button id="togFx" class="btn btn-sm on" style="width:100%;" onclick="togglePref('fxOn')">EFFECTS: ON</button>
+        <button id="togPac" class="btn btn-sm on" style="width:100%;" onclick="togglePref('pacerOn')">PACER: ON</button>
+      </div>
+      <div class="row mt10"><div class="xs mono">4-DIGIT APP PIN LOCK</div><span id="pinPill" class="pill">OFF</span></div>
+      <div class="g2 mt6">
+        <input id="inPin" class="inp mono" type="password" maxlength="4" placeholder="Enter 4-digit PIN">
+        <button id="pinToggleBtn" class="btn btn-ok" onclick="saveTogglePin()">ENABLE PIN</button>
+      </div>
+    </div>
+
+    <!-- THEMES: NEON + RGB + SIMPLE -->
+    <div class="card">
+      <div class="xs mono glow">THEMES (NEON &bull; ANIMATED RGB &bull; SIMPLE)</div>
+      <div class="g4 mt8">
+        <button id="th-cyan" class="btn btn-sm on" style="width:100%;" onclick="setAccent('cyan')">CYAN</button>
+        <button id="th-violet" class="btn btn-sm" style="width:100%;" onclick="setAccent('violet')">VIOLET</button>
+        <button id="th-crimson" class="btn btn-sm" style="width:100%;" onclick="setAccent('crimson')">RED</button>
+        <button id="th-emerald" class="btn btn-sm" style="width:100%;" onclick="setAccent('emerald')">GREEN</button>
+      </div>
+      <div class="g5 mt6">
+        <button id="th-pink" class="btn btn-sm" style="width:100%;" onclick="setAccent('pink')">PINK</button>
+        <button id="th-gold" class="btn btn-sm" style="width:100%;" onclick="setAccent('gold')">GOLD</button>
+        <button id="th-rgb" class="btn btn-sm" style="width:100%;" onclick="setAccent('rgb')">&#127752; RGB</button>
+        <button id="th-sdark" class="btn btn-sm" style="width:100%;" onclick="setAccent('sdark')">DARK</button>
+        <button id="th-slight" class="btn btn-sm" style="width:100%;" onclick="setAccent('slight')">LIGHT</button>
+      </div>
+    </div>
+
+    <!-- BGM JUKEBOX -->
+    <div class="card">
+      <div class="row"><div class="xs mono glow">A.J BGM JUKEBOX (5 TRACKS)</div><span id="bgmStatPill" class="pill ok">PLAYING</span></div>
+      <div id="bgmList" class="mt8"></div>
+      <div class="mt8"><div class="row xs mono"><span>BGM VOLUME</span><span id="vBgmTxt">40%</span></div><input id="slBgm" type="range" min="0" max="100" value="40" oninput="setVol('bgm',this.value)"></div>
+      <div class="mt6"><div class="row xs mono"><span>SFX VOLUME</span><span id="vSfxTxt">70%</span></div><input id="slSfx" type="range" min="0" max="100" value="70" oninput="setVol('sfx',this.value)"></div>
+    </div>
+
+    <!-- BIOMETRICS & BACKUP -->
+    <div class="card">
+      <div class="xs mono glow">HUNTER BIOMETRICS &amp; TARGETS</div>
+      <div class="mt8"><div class="xs mono">HUNTER NAME</div><input id="inName" class="inp mt6" type="text"></div>
+      <div class="g3 mt8">
+        <div><div class="xs mono">HEIGHT(cm)</div><input id="inH" class="inp mt6" type="number"></div>
+        <div><div class="xs mono">WEIGHT(kg)</div><input id="inW" class="inp mt6" type="number"></div>
+        <div><div class="xs mono">STRIDE(m)</div><input id="inStride" class="inp mt6" type="number" step="0.02"></div>
+      </div>
+      <div class="g4 mt8">
+        <div><div class="xs mono">RUN(m)</div><input id="inGRun" class="inp mt6" type="number"></div>
+        <div><div class="xs mono">PUSH</div><input id="inGPush" class="inp mt6" type="number"></div>
+        <div><div class="xs mono">SIT-UP</div><input id="inGSit" class="inp mt6" type="number"></div>
+        <div><div class="xs mono">SQUAT</div><input id="inGSquat" class="inp mt6" type="number"></div>
+      </div>
+      <button class="btn btn-ok mt8" onclick="saveProfile()">&#128190; SAVE PROFILE</button>
+      <div class="g2 mt8"><button class="btn" onclick="replayEntry()">&#127916; REPLAY INTRO</button><button id="devToggleBtn" class="btn" onclick="toggleDevMode()">DEV MODE: ON</button></div>
+    </div>
+
+    <div class="card">
+      <div class="xs mono glow">BACKUP &amp; RESET</div>
+      <textarea id="bkBox" rows="2" class="mt6 mono" placeholder="EXPORT or paste JSON to RESTORE..."></textarea>
+      <div class="g2 mt8"><button class="btn" onclick="exportBackup()">&#128203; EXPORT</button><button class="btn btn-ok" onclick="importBackup()">&#128229; RESTORE</button></div>
+      <button class="btn btn-bad mt8" onclick="resetAllData()">&#9888;&#65039; FACTORY RESET</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+<script>
+(function () {
+  'use strict';
+
+  var STORE_KEY = 'AJ_APEX_V4';
+  var DAYS = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  var MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+
+  function $(id) { return document.getElementById(id); }
+  function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+  function clamp(v, mn, mx) { return v < mn ? mn : (v > mx ? mx : v); }
+  function todayKey(d) { var dt = d || new Date(); return dt.getFullYear() + '-' + pad2(dt.getMonth() + 1) + '-' + pad2(dt.getDate()); }
+  function fmtDateShort(d) { return DAYS[d.getDay()] + ' • ' + pad2(d.getDate()) + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
+  function fmtDur(sec) { return pad2(Math.floor(sec / 60)) + ':' + pad2(Math.floor(sec % 60)); }
+
+  var DIALOGUES = {
+    welcome: ['Welcome, Hunter A.J. All 7 APEX modules are online.', 'Finish all 4 Daily Quests to unlock XP, Gold & Stat Points.'],
+    quest: ['Daily Quest active. XP unlocks strictly at 100% completion of all 4.', 'Use TRACK tab for Kalman GPS Map and Anti-Shake AI Camera.'],
+    track: ['Kalman GPS + Anti-Shake AI Camera active. Keep phone steady on floor.'],
+    train: ['Warm-up, HIIT 40/20, Protein, Water & Sleep Recovery Advisor ready.'],
+    stats: ['Allocate manual Stat Points (+) or download your Hunter ID PNG.'],
+    cal: ['Tap any date on the calendar to inspect your past training logs.'],
+    domain: ['Pass Rank-Up Exams & trade Gold in the A.J Shop.'],
+    system: ['Customize ultra-loud alarm tones, import songs, RGB theme & PIN lock.']
+  };
+
+  var BGM_TRACKS = [
+    { name:'SHADOW MONARCH', vibe:'Dark D-Minor Epic Pulse', ms:560, wave:'triangle', bassWave:'sine', flt:520, lead:[146.83,174.61,220,261.63,220,174.61,164.81,196], bass:[73.42,73.42,55,55,65.41,65.41,58.27,55] },
+    { name:'A.J PROTOCOL', vibe:'Cyberpunk Hologram Synth', ms:360, wave:'square', bassWave:'triangle', flt:950, lead:[261.63,311.13,392,523.25,392,311.13,293.66,349.23], bass:[130.81,0,130.81,98,116.54,0,116.54,98] },
+    { name:'DUNGEON RAID', vibe:'Fast Boss Battle Drive', ms:230, wave:'sawtooth', bassWave:'sawtooth', flt:780, lead:[164.81,174.61,220,246.94,220,174.61,164.81,146.83], bass:[82.41,82.41,87.31,82.41,98,87.31,82.41,73.42] },
+    { name:'RED GATE', vibe:'Eerie Frozen Ambient', ms:880, wave:'sine', bassWave:'triangle', flt:420, lead:[220,261.63,329.63,440,392,329.63,293.66,246.94], bass:[55,55,65.41,65.41,49,49,55,55] },
+    { name:'HUNTER AWAKENING', vibe:'Heroic Training Synthwave', ms:300, wave:'triangle', bassWave:'sawtooth', flt:1100, lead:[196,246.94,293.66,392,329.63,293.66,246.94,220], bass:[98,98,82.41,82.41,130.81,130.81,146.83,146.83] }
+  ];
+
+  var RANKS = ['E-RANK','D-RANK','C-RANK','B-RANK','A-RANK','S-RANK','MONARCH'];
+  var EXAMS = [
+    { next:'D-RANK', lvl:2, run:2000, push:50 }, { next:'C-RANK', lvl:4, run:3000, push:75 },
+    { next:'B-RANK', lvl:6, run:4000, push:100 }, { next:'A-RANK', lvl:9, run:5000, push:120 },
+    { next:'S-RANK', lvl:12, run:6000, push:150 }, { next:'MONARCH', lvl:15, run:8000, push:200 }
+  ];
+  var BOSSES = [
+    { name:'STEEL-FANGED LYCAN', maxHp:800, col:'#ff4d6d', desc:'Swift beast. +80G on defeat.' },
+    { name:'BLOOD-RED IGRIS', maxHp:1500, col:'#ef4444', desc:'Crimson knight. +80G on defeat.' },
+    { name:'ICE ELF BARUKA', maxHp:2400, col:'#38bdf8', desc:'Red Gate assassin. +80G on defeat.' },
+    { name:'HIGH ORC KARGALGAN', maxHp:3600, col:'#f59e0b', desc:'Dark archmage. +80G on defeat.' },
+    { name:'ANT KING BERU', maxHp:5000, col:'#c084fc', desc:'Apex predator. +80G on defeat.' }
+  ];
+  var SHADOWS = [
+    { id:'igris', name:'IGRIS', role:'Marshal Knight', reqLvl:2, pwr:420, col:'#f43f5e' },
+    { id:'tank', name:'TANK', role:'Alpha Shadow Beast', reqLvl:4, pwr:680, col:'#38bdf8' },
+    { id:'iron', name:'IRON', role:'Heavy Vanguard', reqLvl:6, pwr:950, col:'#a3e635' },
+    { id:'tusk', name:'TUSK', role:'High Orc Archmage', reqLvl:9, pwr:1450, col:'#fb923c' },
+    { id:'beru', name:'BERU', role:'Shadow Ant King', reqLvl:12, pwr:2600, col:'#c084fc' }
+  ];
+  var ACHS = [
+    { name:'AWAKENED', desc:'Clear 1 Daily Quest', check:function(s){ return s.questsCleared >= 1; } },
+    { name:'SHADOW RUNNER', desc:'Run 10 km total', check:function(s){ return s.totalRunM >= 10000; } },
+    { name:'IRON ARMS', desc:'500 total push-ups', check:function(s){ return s.totalPush >= 500; } },
+    { name:'CORE OF STEEL', desc:'500 total sit-ups', check:function(s){ return s.totalSit >= 500; } },
+    { name:'GATE BREAKER', desc:'Defeat 1 Boss', check:function(s){ return s.bossKills >= 1; } },
+    { name:'SHADOW MONARCH', desc:'Pass Monarch Exam', check:function(s){ return s.rankTier >= 6; } }
+  ];
+
+  function defaultState() {
+    return {
+      dateKey:todayKey(), dayNum:1, name:'A.J', height:175, weight:68, stride:0.76,
+      level:1, xp:0, xpNext:100, rankTier:0, gold:50, statPts:5,
+      streak:0, bestStreak:0, questsCleared:0,
+      runM:0, steps:0, push:0, situp:0, squat:0, water:0, pro:0, cal:0,
+      goalRun:4000, goalPush:100, goalSit:100, goalSquat:100, claimed:false, penalty:false,
+      totalRunM:0, totalPush:0, totalSit:0, totalSquat:0,
+      pr:{ runM:0, push:0, maxSpd:0, form:0 }, stats:{ str:10, agi:10, vit:10, sen:10, intl:10 },
+      inv:{ freeze:0, ticket:0, goldTheme:false, titleOne:false },
+      sleepH:7.5, fatigue:20, bodyLogs:[], bossIdx:0, bossHp:800, bossKills:0,
+      shadows:[], logs:[], tab:'quest', accent:'cyan', devMode:true,
+      bgmOn:true, sfxOn:true, bgmTrack:0, bgmVol:0.40, sfxVol:0.70, almVol:1.0,
+      vibOn:true, fxOn:true, pacerOn:true,
+      alarmOn:false, alarmTime:'06:00', alarmLabel:'DAILY QUEST — ARISE!', alarmTone:'0', alarmSongName:'',
+      pinOn:false, pinCode:'', camEx:'pushup', camEngine:'skeleton', camSens:'med', mapMode:'dark'
+    };
+  }
+
+  var S = defaultState(), nowD = new Date(), calYear = nowD.getFullYear(), calMonth = nowD.getMonth();
+  function loadState() {
+    try { var raw = localStorage.getItem(STORE_KEY); if (raw) { var obj = JSON.parse(raw); for (var k in obj) if (obj.hasOwnProperty(k)) S[k] = obj[k]; } } catch (e) {}
+    if (!S.name) S.name = 'A.J';
+    if (!S.pr) S.pr = { runM:0, push:0, maxSpd:0, form:0 };
+    if (!S.inv) S.inv = { freeze:0, ticket:0, goldTheme:false, titleOne:false };
+    if (!S.bodyLogs) S.bodyLogs = [];
+    checkDailyRollover(false);
+  }
+  function saveState() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) {} }
+  function vibe(pat) { if (S.vibOn && navigator.vibrate) navigator.vibrate(pat); }
+
+  function calcQuestPct() {
+    return Math.round((Math.min(1, S.runM/Math.max(1,S.goalRun)) + Math.min(1, S.push/Math.max(1,S.goalPush)) + Math.min(1, S.situp/Math.max(1,S.goalSit)) + Math.min(1, S.squat/Math.max(1,S.goalSquat))) * 25);
+  }
+  function checkDailyRollover(forceNext) {
+    var tk = todayKey(); if (!forceNext && S.dateKey === tk) return;
+    S.logs.unshift({ date:S.dateKey, day:S.dayNum, runM:Math.round(S.runM), push:S.push, situp:S.situp, squat:S.squat, pct:calcQuestPct(), cleared:S.claimed });
+    if (S.logs.length > 90) S.logs = S.logs.slice(0, 90);
+    if (!S.claimed && (S.runM > 0 || S.push > 0 || S.dayNum > 1)) {
+      if (S.inv.freeze > 0) { S.inv.freeze -= 1; S.penalty = false; toast('❄ Streak Freeze saved your streak!'); }
+      else { S.streak = 0; S.penalty = true; }
+    } else { S.penalty = false; }
+    S.dateKey = tk; S.dayNum += 1; S.goalRun = Math.min(10000, S.goalRun + 200);
+    S.runM = 0; S.steps = 0; S.push = 0; S.situp = 0; S.squat = 0; S.water = 0; S.pro = 0; S.cal = 0; S.claimed = false;
+    routePts = []; kmSplits = []; nextKmTarget = 1000; gpsSec = 0; maxSpeed = 0; saveState();
+  }
+
+  /* === ANIMATED RGB THEME LOOP === */
+  var rgbTimer = null, rgbHue = 190;
+  function applyTheme() {
+    var r = document.documentElement.style;
+    if (S.accent === 'rgb' && !S.penalty) {
+      document.body.className = 'accent-cyan';
+      if (!rgbTimer) {
+        rgbTimer = setInterval(function () {
+          rgbHue = (rgbHue + 5) % 360;
+          var h2 = (rgbHue + 40) % 360;
+          r.setProperty('--ac', 'hsl(' + rgbHue + ',100%,60%)');
+          r.setProperty('--ac2', 'hsl(' + h2 + ',95%,48%)');
+          r.setProperty('--glow', 'hsla(' + rgbHue + ',100%,55%,0.52)');
+          r.setProperty('--bd', 'hsla(' + rgbHue + ',100%,60%,0.62)');
+          r.setProperty('--bdd', 'hsla(' + rgbHue + ',100%,60%,0.24)');
+        }, 120);
+      }
+    } else {
+      if (rgbTimer) { clearInterval(rgbTimer); rgbTimer = null; }
+      r.removeProperty('--ac'); r.removeProperty('--ac2'); r.removeProperty('--glow'); r.removeProperty('--bd'); r.removeProperty('--bdd');
+      document.body.className = 'accent-' + S.accent + (S.penalty ? ' theme-penalty' : '');
+    }
+    $('manaCanvas').classList.toggle('hidden', !S.fxOn || S.accent === 'slight' || S.accent === 'sdark');
+    $('scanBar').classList.toggle('hidden', !S.fxOn);
+  }
+
+  /* === 4-DIGIT PIN LOCK === */
+  var pinBuf = '';
+  function checkPinLock() { if (S.pinOn && S.pinCode && S.pinCode.length === 4) $('pinOverlay').classList.remove('hidden'); }
+  function renderPinDots() { var ds = $('pinDots').children; for (var i = 0; i < ds.length; i++) ds[i].classList.toggle('fill', i < pinBuf.length); }
+  window.pinTap = function (n) {
+    if (pinBuf.length >= 4) return; pinBuf += n; renderPinDots(); sfxClick();
+    if (pinBuf.length === 4) {
+      if (pinBuf === S.pinCode) { $('pinOverlay').classList.add('hidden'); pinBuf = ''; renderPinDots(); sfxRep(); }
+      else { toast('WRONG PIN!'); vibe([120,60,120]); pinBuf = ''; setTimeout(renderPinDots, 250); }
+    }
+  };
+  window.pinClear = function () { pinBuf = ''; renderPinDots(); };
+  window.pinBack = function () { pinBuf = pinBuf.slice(0, -1); renderPinDots(); };
+  window.saveTogglePin = function () {
+    if (S.pinOn) { S.pinOn = false; S.pinCode = ''; saveState(); renderSystem(); toast('PIN Lock Disabled'); return; }
+    var v = ($('inPin').value || '').replace(/\D/g, '');
+    if (v.length !== 4) { toast('Enter exact 4 digits!'); return; }
+    S.pinCode = v; S.pinOn = true; $('inPin').value = ''; saveState(); renderSystem(); sfxRep(); toast('4-Digit PIN Lock Enabled!');
+  };
+
+  /* === AUDIO ENGINE (5 BGM + ULTRA-LOUD 5-TONE ALARM + CUSTOM SONG IMPORT) === */
+  var actx = null, bgmTimer = null, bgmStep = 0, keepOsc = null, dlgIdx = 0, typeTimer = null;
+  var customAlarmUrl = null, customAlarmAudio = null, alarmLoop = null, lastAlarmMin = '', snoozeTarget = '';
+
+  function initAudioCtx() {
+    if (!actx) { var AC = window.AudioContext || window.webkitAudioContext; if (AC) { try { actx = new AC(); } catch (e) {} } }
+    if (actx && actx.state === 'suspended') { try { actx.resume(); } catch (e) {} }
+  }
+  function playTone(freq, dur, type, volMult) {
+    if (!S.sfxOn || !actx) return;
+    try {
+      var o = actx.createOscillator(), g = actx.createGain();
+      o.type = type || 'sine'; o.frequency.setValueAtTime(freq, actx.currentTime);
+      g.gain.setValueAtTime(Math.max(0.001, S.sfxVol * (volMult || 0.22)), actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0008, actx.currentTime + dur);
+      o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) {}
+  }
+  function playLoudAlarmTone(f1, f2, dur, wave) {
+    initAudioCtx(); if (!actx) return;
+    try {
+      var now = actx.currentTime, v = clamp(S.almVol || 1.0, 0.2, 1.0);
+      var comp = actx.createDynamicsCompressor(); comp.connect(actx.destination);
+      var g = actx.createGain(); g.gain.setValueAtTime(v * 0.92, now); g.gain.exponentialRampToValueAtTime(0.01, now + dur); g.connect(comp);
+      var o1 = actx.createOscillator(), o2 = actx.createOscillator();
+      o1.type = wave || 'sawtooth'; o2.type = 'square';
+      o1.frequency.setValueAtTime(f1, now); o2.frequency.setValueAtTime(f1 * 1.01, now);
+      if (f2 !== f1) { o1.frequency.linearRampToValueAtTime(f2, now + dur * 0.85); o2.frequency.linearRampToValueAtTime(f2 * 1.01, now + dur * 0.85); }
+      o1.connect(g); o2.connect(g); o1.start(now); o2.start(now); o1.stop(now + dur + 0.02); o2.stop(now + dur + 0.02);
+    } catch (e) {}
+  }
+
+  function sfxClick() { playTone(620, 0.06, 'sine', 0.16); }
+  function sfxDown() { playTone(380, 0.05, 'sine', 0.14); }
+  function sfxRep() { playTone(520, 0.07, 'triangle', 0.22); setTimeout(function(){ playTone(780, 0.09, 'sine', 0.20); }, 55); }
+  function sfxPacer() { if (!S.pacerOn) return; playTone(587, 0.08, 'triangle', 0.24); setTimeout(function(){ playTone(880, 0.10, 'sine', 0.24); }, 80); vibe([90,50,90]); }
+  function sfxChirp() { playTone(880, 0.04, 'sine', 0.10); }
+  function sfxArise() { playTone(146.8, 0.45, 'sawtooth', 0.20); setTimeout(function(){ playTone(220, 0.45, 'triangle', 0.22); }, 140); setTimeout(function(){ playTone(293.6, 0.60, 'sine', 0.24); }, 300); }
+
+  function startBgm() {
+    stopBgm(); if (!S.bgmOn) return; initAudioCtx(); if (!actx) return;
+    var tr = BGM_TRACKS[S.bgmTrack % BGM_TRACKS.length]; bgmStep = 0;
+    bgmTimer = setInterval(function () {
+      if (!S.bgmOn || !actx || actx.state !== 'running') return;
+      try {
+        var now = actx.currentTime, fL = tr.lead[bgmStep % tr.lead.length], fB = tr.bass[bgmStep % tr.bass.length], dur = (tr.ms/1000)*0.92; bgmStep += 1;
+        if (fL > 0) { var o1=actx.createOscillator(), flt=actx.createBiquadFilter(), g1=actx.createGain(); o1.type=tr.wave; o1.frequency.setValueAtTime(fL,now); flt.type='lowpass'; flt.frequency.setValueAtTime(tr.flt,now); g1.gain.setValueAtTime(0.001,now); g1.gain.linearRampToValueAtTime(Math.max(0.001,S.bgmVol*0.13),now+0.04); g1.gain.exponentialRampToValueAtTime(0.0008,now+dur); o1.connect(flt); flt.connect(g1); g1.connect(actx.destination); o1.start(now); o1.stop(now+dur+0.02); }
+        if (fB > 0) { var o2=actx.createOscillator(), flt2=actx.createBiquadFilter(), g2=actx.createGain(); o2.type=tr.bassWave; o2.frequency.setValueAtTime(fB,now); flt2.type='lowpass'; flt2.frequency.setValueAtTime(260,now); g2.gain.setValueAtTime(0.001,now); g2.gain.linearRampToValueAtTime(Math.max(0.001,S.bgmVol*0.16),now+0.03); g2.gain.exponentialRampToValueAtTime(0.0008,now+dur); o2.connect(flt2); flt2.connect(g2); g2.connect(actx.destination); o2.start(now); o2.stop(now+dur+0.02); }
+      } catch (e) {}
+    }, tr.ms);
+  }
+  function stopBgm() { if (bgmTimer) { clearInterval(bgmTimer); bgmTimer = null; } }
+  window.selectBgm = function (idx) { S.bgmTrack = idx % BGM_TRACKS.length; S.bgmOn = true; saveState(); startBgm(); renderHeader(); if (S.tab === 'system') renderSystem(); toast('BGM: ' + BGM_TRACKS[S.bgmTrack].name); };
+  window.nextBgmTrack = function () { selectBgm((S.bgmTrack + 1) % BGM_TRACKS.length); };
+
+  window.setAlarmTone = function (v) { S.alarmTone = v; saveState(); sfxClick(); };
+  window.importAlarmSong = function (inp) {
+    if (!inp || !inp.files || !inp.files[0]) return;
+    var f = inp.files[0];
+    if (customAlarmUrl) { try { URL.revokeObjectURL(customAlarmUrl); } catch (e) {} }
+    customAlarmUrl = URL.createObjectURL(f);
+    S.alarmSongName = f.name; S.alarmTone = 'custom';
+    saveState(); renderSystem(); sfxRep(); toast('Custom Alarm Song Loaded: ' + f.name);
+  };
+  window.saveToggleAlarm = function () { S.alarmTime = $('inAlarmTime').value || '06:00'; S.alarmLabel = $('inAlarmLbl').value || 'DAILY QUEST — ARISE!'; S.alarmOn = !S.alarmOn; saveState(); renderSystem(); sfxClick(); toast(S.alarmOn ? 'Alarm ON: ' + S.alarmTime : 'Alarm OFF'); };
+  window.triggerAlarm = function (isTest) {
+    initAudioCtx(); stopBgm();
+    $('alarmModalTitle').textContent = S.alarmLabel || 'DAILY QUEST — ARISE!';
+    $('alarmModalTime').textContent = isTest ? 'TEST' : S.alarmTime;
+    $('alarmModal').classList.remove('hidden');
+    if (alarmLoop) { clearInterval(alarmLoop); alarmLoop = null; }
+    if (customAlarmAudio) { try { customAlarmAudio.pause(); customAlarmAudio = null; } catch (e) {} }
+
+    if (S.alarmTone === 'custom' && customAlarmUrl) {
+      try {
+        customAlarmAudio = new Audio(customAlarmUrl);
+        customAlarmAudio.loop = true; customAlarmAudio.volume = clamp(S.almVol || 1.0, 0.2, 1.0);
+        customAlarmAudio.play().catch(function () {});
+        alarmLoop = setInterval(function () { vibe([350,150,350]); }, 1200);
+        return;
+      } catch (e) {}
+    }
+    function ringPattern() {
+      var t = S.alarmTone || '0';
+      if (t === '1') { playLoudAlarmTone(185, 165, 0.75, 'sawtooth'); }
+      else if (t === '2') { playLoudAlarmTone(1200, 1200, 0.14, 'square'); setTimeout(function(){ playLoudAlarmTone(1200, 1200, 0.14, 'square'); }, 180); setTimeout(function(){ playLoudAlarmTone(1600, 1600, 0.22, 'square'); }, 360); }
+      else if (t === '3') { playLoudAlarmTone(700, 1400, 0.18, 'sawtooth'); setTimeout(function(){ playLoudAlarmTone(1400, 700, 0.18, 'sawtooth'); }, 220); setTimeout(function(){ playLoudAlarmTone(900, 1800, 0.24, 'sawtooth'); }, 440); }
+      else if (t === '4') { playLoudAlarmTone(523, 523, 0.35, 'triangle'); setTimeout(function(){ playLoudAlarmTone(659, 659, 0.35, 'triangle'); }, 240); setTimeout(function(){ playLoudAlarmTone(784, 784, 0.45, 'triangle'); }, 480); }
+      else { playLoudAlarmTone(620, 1350, 0.48, 'sawtooth'); setTimeout(function(){ playLoudAlarmTone(1350, 620, 0.48, 'sawtooth'); }, 500); }
+      vibe([300,120,300]);
+    }
+    ringPattern(); alarmLoop = setInterval(ringPattern, 1100);
+  };
+  window.dismissAlarm = function () {
+    if (alarmLoop) { clearInterval(alarmLoop); alarmLoop = null; }
+    if (customAlarmAudio) { try { customAlarmAudio.pause(); customAlarmAudio = null; } catch (e) {} }
+    $('alarmModal').classList.add('hidden'); snoozeTarget = ''; if (S.bgmOn) startBgm(); sfxClick();
+  };
+  window.snoozeAlarm = function () { dismissAlarm(); var d = new Date((new Date()).getTime() + 5*60000); snoozeTarget = pad2(d.getHours())+':'+pad2(d.getMinutes()); toast('Snoozed until '+snoozeTarget); };
+
+  function showDialogue(key, forceIdx) {
+    var list = DIALOGUES[key] || DIALOGUES.quest, txt = list[(typeof forceIdx === 'number' ? forceIdx : dlgIdx) % list.length];
+    if (typeTimer) clearInterval(typeTimer); var el = $('dlgTxt'), i = 0; el.textContent = ''; sfxChirp();
+    typeTimer = setInterval(function () { i += 2; el.textContent = txt.slice(0, i); if (i >= txt.length) { clearInterval(typeTimer); typeTimer = null; } }, 18);
+  }
+
+  /* === MANA PARTICLES === */
+  var mPts = [];
+  function initMana() {
+    var c = $('manaCanvas'), ctx = c.getContext('2d');
+    function resize() { c.width = window.innerWidth; c.height = window.innerHeight; }
+    resize(); window.addEventListener('resize', resize);
+    for (var i = 0; i < 26; i++) mPts.push({ x:Math.random()*c.width, y:Math.random()*c.height, r:1+Math.random()*2.2, vy:0.25+Math.random()*0.65, a:0.2+Math.random()*0.6 });
+    setInterval(function () {
+      if (!S.fxOn) return;
+      ctx.clearRect(0, 0, c.width, c.height);
+      var col = S.penalty ? '255,42,85' : (S.accent==='violet'?'192,132,252':(S.accent==='crimson'?'255,77,109':(S.accent==='emerald'?'52,211,153':(S.accent==='gold'?'251,191,36':(S.accent==='pink'?'244,114,182':'0,229,255')))));
+      for (var j = 0; j < mPts.length; j++) {
+        var p = mPts[j]; p.y -= p.vy; if (p.y < -6) { p.y = c.height + 6; p.x = Math.random() * c.width; }
+        ctx.fillStyle = (S.accent==='rgb') ? ('hsla('+rgbHue+',100%,60%,'+p.a+')') : ('rgba('+col+','+p.a+')');
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+      }
+    }, 50);
+  }
+
+  /* === PROGRESSION, RESET RUN+PUSH, STATS, SHOP, EXAM, SUDDEN QUEST === */
+  function getRank() { return RANKS[clamp(S.rankTier || 0, 0, RANKS.length - 1)]; }
+  function floatPop(txt) { var d = document.createElement('div'); d.className = 'float-pop mono'; d.textContent = txt; document.body.appendChild(d); setTimeout(function () { if (d.parentNode) d.parentNode.removeChild(d); }, 1060); }
+  function toast(msg) { var t = $('toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(t._tm); t._tm = setTimeout(function () { t.classList.add('hidden'); }, 2400); }
+
+  window.resetRunPush = function () {
+    if (!confirm('Reset ONLY today\'s Running and Push-up count to 0?')) return;
+    S.runM = 0; S.steps = 0; S.push = 0; routePts = []; kmSplits = []; nextKmTarget = 1000; curSpeed = 0; maxSpeed = 0; gpsSec = 0; kLat = null; kLon = null;
+    $('splitBox').classList.add('hidden'); saveState(); renderAll(); sfxClick(); toast('Running & Push-ups reset to 0');
+  };
+  function gainDailyQuestXp(amt) {
+    S.xp += amt;
+    while (S.xp >= S.xpNext) {
+      S.xp -= S.xpNext; S.level += 1; S.xpNext = Math.round(S.xpNext * 1.25); S.statPts = (S.statPts || 0) + 5;
+      for (var i = 0; i < SHADOWS.length; i++) if (S.level >= SHADOWS[i].reqLvl && S.shadows.indexOf(SHADOWS[i].id) === -1) S.shadows.push(SHADOWS[i].id);
+      showCutscene('LEVEL UP!', 'HUNTER A.J LEVEL ' + S.level, '+5 Free Stat Points! Spend them in STATS tab.', '&#11014;&#65039;');
+    }
+    saveState();
+  }
+  window.spendStat = function (k) { if (!S.statPts || S.statPts <= 0) { toast('No Free Stat Points!'); return; } S.statPts -= 1; S.stats[k] += 1; sfxRep(); floatPop('+1 ' + k.toUpperCase()); saveState(); renderStats(); };
+  window.buyItem = function (item, cost) {
+    if (S.gold < cost) { toast('Need ' + cost + ' Gold!'); return; }
+    if ((item==='goldTheme'&&S.inv.goldTheme)||(item==='titleOne'&&S.inv.titleOne)) { toast('Already Owned!'); return; }
+    S.gold -= cost; if (item==='freeze') S.inv.freeze += 1; if (item==='ticket') S.inv.ticket += 1;
+    if (item==='goldTheme') { S.inv.goldTheme = true; S.accent = 'gold'; } if (item==='titleOne') S.inv.titleOne = true;
+    saveState(); renderAll(); sfxArise(); toast('Purchased! Left: ' + S.gold + 'G');
+  };
+  window.useTicket = function () { if (S.inv.ticket<=0){toast('Buy Ticket first!');return;} if(!S.penalty){toast('Not in Penalty Zone.');return;} S.inv.ticket-=1; S.penalty=false; saveState(); renderAll(); sfxRep(); toast('Penalty Cleared!'); };
+  window.attemptRankExam = function () {
+    var ex = EXAMS[S.rankTier]; if (!ex) { toast('Max Rank MONARCH reached!'); return; }
+    if (S.level < ex.lvl) { toast('Need Level ' + ex.lvl + '!'); return; }
+    if (S.runM < ex.run || S.push < ex.push) { toast('Today need ' + ex.run + 'm Run & ' + ex.push + ' Push-ups!'); return; }
+    S.rankTier += 1; S.gold += 150; saveState(); renderAll(); showCutscene('RANK PROMOTED!', 'NEW RANK: ' + getRank(), '+150 Gold Bonus!', '&#128081;');
+  };
+
+  var emTimer = null, emSec = 60, emGoal = 20, emCnt = 0;
+  window.startEmergencyQuest = function () {
+    sfxArise(); var ch = [{t:'20 PUSH-UPS IN 60 SEC',g:20},{t:'25 SQUATS IN 60 SEC',g:25},{t:'25 SIT-UPS IN 60 SEC',g:25}], p = ch[Math.floor(Math.random()*ch.length)];
+    emGoal = p.g; emCnt = 0; emSec = 60; $('emTitle').textContent = p.t; $('emTimer').textContent = '60s'; $('emProg').textContent = '0 / '+emGoal; $('emergModal').classList.remove('hidden');
+    if (emTimer) clearInterval(emTimer); emTimer = setInterval(function () { emSec -= 1; $('emTimer').textContent = emSec+'s'; if (emSec<=0) closeEmerg(false); }, 1000);
+  };
+  window.emTap = function () { emCnt += 1; sfxRep(); $('emProg').textContent = emCnt+' / '+emGoal; if (emCnt>=emGoal) closeEmerg(true); };
+  window.closeEmerg = function (won) {
+    if (emTimer) { clearInterval(emTimer); emTimer = null; } $('emergModal').classList.add('hidden');
+    if (won) { S.gold += 60; dealBossDmg(250); saveState(); renderAll(); showCutscene('EMERGENCY CLEARED!','+60 GOLD','250 Critical Damage to Dungeon Boss!','&#128680;'); }
+  };
+
+  function dealBossDmg(dmg) {
+    if (dmg <= 0) return; S.bossHp -= dmg;
+    if (S.bossHp <= 0) { var b = BOSSES[S.bossIdx%BOSSES.length]; S.bossKills += 1; S.gold += 80; S.bossIdx = (S.bossIdx+1)%BOSSES.length; S.bossHp = BOSSES[S.bossIdx].maxHp; showCutscene('BOSS SLAIN', b.name+' DEFEATED', '+80 Gold Awarded!', '&#9876;&#65039;'); }
+  }
+  function addRun(meters, stepsAdd) {
+    var prev100 = Math.floor(S.runM/100), prev500 = Math.floor(S.runM/500);
+    S.runM += meters; S.totalRunM += meters; if (stepsAdd) S.steps += stepsAdd;
+    if (S.runM > S.pr.runM) S.pr.runM = Math.round(S.runM);
+    if (Math.floor(S.runM/500) > prev500) { sfxPacer(); toast('⚡ 500M MILESTONE!'); }
+    if (S.runM >= nextKmTarget) { var km = Math.floor(nextKmTarget/1000), sp = gpsSec - lastSplitSec; lastSplitSec = gpsSec; kmSplits.push('KM '+km+': '+fmtDur(sp>0?sp:360)); nextKmTarget += 1000; }
+    var now100 = Math.floor(S.runM/100); if (now100 > prev100) { var df = now100 - prev100; S.stats.agi += df; dealBossDmg(df*25); }
+    saveState(); renderAll();
+  }
+  function addPush(n) { S.push += n; S.totalPush += n; if (S.push > S.pr.push) S.pr.push = S.push; dealBossDmg(n*4); if (S.push>0&&S.push%10===0) sfxPacer(); else sfxRep(); floatPop('+'+n+' PUSH-UP'); saveState(); renderAll(); }
+  function addSitup(n) { S.situp += n; S.totalSit += n; dealBossDmg(n*4); if (S.situp>0&&S.situp%10===0) sfxPacer(); else sfxRep(); floatPop('+'+n+' SIT-UP'); saveState(); renderAll(); }
+  function addSquat(n) { S.squat += n; S.totalSquat += n; dealBossDmg(n*4); if (S.squat>0&&S.squat%10===0) sfxPacer(); else sfxRep(); floatPop('+'+n+' SQUAT'); saveState(); renderAll(); }
+
+  /* === KALMAN GPS + MAP + POCKET MODE + GLOBAL ACCEL (ALSO FOR CAM ANTI-SHAKE) === */
+  var gpsActive = false, gpsWatch = null, kLat = null, kLon = null, lastGpsTs = 0;
+  var routePts = [], mapZoom = 16, curSpeed = 0, maxSpeed = 0, curAlt = 0, curAcc = 0;
+  var gpsSec = 0, gpsTimer = null, kmSplits = [], nextKmTarget = 1000, lastSplitSec = 0;
+  var accelOn = false, stepBuf = [], lastPeak = 0, tileCache = {}, camShakeUntil = 0;
+  var wakeObj = null, unlockTimer = null, unlockStart = 0, pocketClock = null;
+
+  function haversine(a1, o1, a2, o2) { var R=6371000, dA=(a2-a1)*Math.PI/180, dO=(o2-o1)*Math.PI/180, x=Math.sin(dA/2)*Math.sin(dA/2)+Math.cos(a1*Math.PI/180)*Math.cos(a2*Math.PI/180)*Math.sin(dO/2)*Math.sin(dO/2); return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x)); }
+  function kalmanStep(lat, lon, acc) { if (kLat===null){kLat=lat;kLon=lon;return{lat:lat,lon:lon};} var g=clamp(12/Math.max(8,acc||15),0.22,0.72); kLat+=g*(lat-kLat); kLon+=g*(lon-kLon); return{lat:kLat,lon:kLon}; }
+  function ensureAccel() {
+    if (accelOn || !window.DeviceMotionEvent) return;
+    if (typeof DeviceMotionEvent.requestPermission === 'function') DeviceMotionEvent.requestPermission().then(function(r){ if(r==='granted'){window.addEventListener('devicemotion',onMotion);accelOn=true;} }).catch(function(){});
+    else { window.addEventListener('devicemotion', onMotion); accelOn = true; }
+  }
+  function onMotion(e) {
+    var a = e.accelerationIncludingGravity; if (!a) return;
+    var mag = Math.sqrt((a.x||0)*(a.x||0)+(a.y||0)*(a.y||0)+(a.z||0)*(a.z||0)), now = (new Date()).getTime();
+    if (camStream && Math.abs(mag - 9.81) > 1.8) camShakeUntil = now + 950;
+    if (!gpsActive) return;
+    if (mag > 12.6 && mag < 24.5 && (now - lastPeak) > 310) {
+      lastPeak = now; stepBuf.push(now); while (stepBuf.length && (now - stepBuf[0]) > 2200) stepBuf.shift();
+      if (stepBuf.length >= 3) {
+        var dt1 = stepBuf[stepBuf.length-1]-stepBuf[stepBuf.length-2], dt2 = stepBuf[stepBuf.length-2]-stepBuf[stepBuf.length-3];
+        if (Math.abs(dt1-dt2) < 380) { addRun(((now-lastGpsTs)>6000||kLat===null)?S.stride:0, 1); updatePocketDom(); }
+      }
+    }
+  }
+  window.toggleGpsSteps = function () { sfxClick(); if (gpsActive) stopGpsSteps(); else startGpsSteps(); };
+  function startGpsSteps() {
+    if (gpsActive) return; gpsActive = true; $('gpsBtn').textContent = '⏹ STOP PRO GPS'; $('gpsBtn').classList.add('on');
+    $('gpsPill').textContent = 'LOCKING'; $('gpsPill').className = 'pill warn'; requestWakeLock(); ensureAccel();
+    if (!gpsTimer) gpsTimer = setInterval(function () { gpsSec += 1; $('gpsTimePill').textContent = fmtDur(gpsSec); }, 1000);
+    if (navigator.geolocation) {
+      gpsWatch = navigator.geolocation.watchPosition(function (pos) {
+        var c = pos.coords, acc = Math.round(c.accuracy || 20); curAcc = acc;
+        $('gpsSigPill').textContent = 'SIG: '+(acc<=10?'GREAT':(acc<=22?'GOOD':'FAIR'))+' ±'+acc+'m';
+        if (acc > 45) return; $('gpsPill').textContent = 'LOCKED'; $('gpsPill').className = 'pill ok';
+        if (typeof c.altitude === 'number') curAlt = Math.round(c.altitude);
+        var now = (new Date()).getTime(), pL = kLat, pO = kLon, sm = kalmanStep(c.latitude, c.longitude, acc);
+        $('mapCoord').textContent = sm.lat.toFixed(4)+', '+sm.lon.toFixed(4);
+        if (pL !== null) {
+          var d = haversine(pL, pO, sm.lat, sm.lon), dt = Math.max(0.5, (now-lastGpsTs)/1000), spd = (c.speed&&c.speed>0.3)?(c.speed*3.6):((d/dt)*3.6);
+          if (d >= 2.2 && d < 55 && spd < 38) { curSpeed = spd; if (curSpeed>maxSpeed){maxSpeed=curSpeed;if(maxSpeed>S.pr.maxSpd)S.pr.maxSpd=parseFloat(maxSpeed.toFixed(1));} routePts.push({lat:sm.lat,lon:sm.lon,spd:curSpeed}); addRun(d,0); }
+        } else routePts.push({lat:sm.lat,lon:sm.lon,spd:0});
+        lastGpsTs = now; drawMap(); updatePocketDom();
+      }, function () { $('gpsPill').textContent = 'STEP-ONLY'; $('gpsPill').className = 'pill warn'; }, { enableHighAccuracy:true, maximumAge:1500, timeout:10000 });
+    }
+  }
+  function stopGpsSteps() { gpsActive = false; if(gpsWatch!==null&&navigator.geolocation){navigator.geolocation.clearWatch(gpsWatch);gpsWatch=null;} if(gpsTimer){clearInterval(gpsTimer);gpsTimer=null;} curSpeed=0; $('gpsBtn').textContent='👟 START PRO GPS'; $('gpsBtn').classList.remove('on'); $('gpsPill').textContent='OFFLINE'; $('gpsPill').className='pill'; releaseWakeLock(); renderTrack(); }
+  function lon2tile(lon, z) { return (lon+180)/360*Math.pow(2,z); }
+  function lat2tile(lat, z) { return (1-Math.log(Math.tan(lat*Math.PI/180)+1/Math.cos(lat*Math.PI/180))/Math.PI)/2*Math.pow(2,z); }
+  function drawMap() {
+    var c = $('mapCanvas'); if (!c || S.tab !== 'track') return;
+    var w = c.clientWidth||340, h = c.clientHeight||200; if (c.width!==w||c.height!==h){c.width=w;c.height=h;}
+    var ctx = c.getContext('2d'); ctx.fillStyle = '#030816'; ctx.fillRect(0,0,w,h);
+    var ctr = routePts.length ? routePts[routePts.length-1] : {lat:28.6139,lon:77.2090}, cx = lon2tile(ctr.lon,mapZoom), cy = lat2tile(ctr.lat,mapZoom);
+    if (S.mapMode==='dark' && navigator.onLine) {
+      var tx0=Math.floor(cx), ty0=Math.floor(cy), ox=w/2-(cx-tx0)*256, oy=h/2-(cy-ty0)*256;
+      for (var dx=-1;dx<=1;dx++) for (var dy=-1;dy<=1;dy++) {
+        var key = mapZoom+'/'+(tx0+dx)+'/'+(ty0+dy);
+        if (!tileCache[key]) { var img=new Image(); img.crossOrigin='anonymous'; img.onload=function(){drawMap();}; img.src='https://basemaps.cartocdn.com/dark_all/'+key+'.png'; tileCache[key]=img; }
+        var im = tileCache[key]; if (im&&im.complete&&im.naturalWidth>0) ctx.drawImage(im, ox+dx*256, oy+dy*256, 256, 256);
+      }
+      ctx.fillStyle = 'rgba(2,8,22,0.34)'; ctx.fillRect(0,0,w,h);
+    } else {
+      ctx.strokeStyle = 'rgba(0,229,255,0.12)'; ctx.lineWidth = 1;
+      for (var gx=0;gx<w;gx+=28){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,h);ctx.stroke();}
+      for (var gy=0;gy<h;gy+=28){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(w,gy);ctx.stroke();}
+      ctx.strokeStyle = 'rgba(0,229,255,0.22)'; for (var r=32;r<=104;r+=36){ctx.beginPath();ctx.arc(w/2,h/2,r,0,Math.PI*2);ctx.stroke();}
+    }
+    if (routePts.length > 1) {
+      ctx.lineWidth = 3.5;
+      for (var i=1;i<routePts.length;i++) {
+        var p0=routePts[i-1], p1=routePts[i];
+        ctx.strokeStyle = (p1.spd||0)>=12?'#fbbf24':((p1.spd||0)>=7.5?'#34d399':'#00e5ff');
+        ctx.beginPath(); ctx.moveTo(w/2+(lon2tile(p0.lon,mapZoom)-cx)*256, h/2+(lat2tile(p0.lat,mapZoom)-cy)*256);
+        ctx.lineTo(w/2+(lon2tile(p1.lon,mapZoom)-cx)*256, h/2+(lat2tile(p1.lat,mapZoom)-cy)*256); ctx.stroke();
+      }
+    }
+    ctx.fillStyle = '#00e5ff'; ctx.beginPath(); ctx.arc(w/2,h/2,6,0,Math.PI*2); ctx.fill();
+  }
+  window.setMapMode = function (m) { S.mapMode=m; saveState(); $('btnMapDark').classList.toggle('on',m==='dark'); $('btnMapRadar').classList.toggle('on',m==='radar'); drawMap(); };
+  window.zoomMap = function (d) { mapZoom = clamp(mapZoom+d, 13, 18); drawMap(); };
+  window.recenterMap = function () { mapZoom = 16; drawMap(); };
+  var demoInt = null;
+  window.runDemoRoute = function () {
+    sfxClick(); switchTab('track'); if (demoInt) { clearInterval(demoInt); demoInt = null; return; }
+    var lat=28.6139, lon=77.2090, ang=0, stp=0; routePts=[{lat:lat,lon:lon,spd:6}]; $('gpsPill').textContent='DEMO'; $('gpsPill').className='pill ok';
+    demoInt = setInterval(function () {
+      stp+=1; ang+=0.26; lat+=Math.cos(ang)*0.00036; lon+=Math.sin(ang)*0.00036; curSpeed=6.5+(stp%9);
+      if(curSpeed>maxSpeed){maxSpeed=curSpeed;if(maxSpeed>S.pr.maxSpd)S.pr.maxSpd=parseFloat(maxSpeed.toFixed(1));}
+      gpsSec+=2; $('gpsTimePill').textContent=fmtDur(gpsSec); curAlt=215+(stp%5);
+      routePts.push({lat:lat,lon:lon,spd:curSpeed}); $('mapCoord').textContent=lat.toFixed(4)+', '+lon.toFixed(4);
+      addRun(55,68); drawMap(); if(stp>=24){clearInterval(demoInt);demoInt=null;}
+    }, 550);
+  };
+  function requestWakeLock() { if(navigator.wakeLock&&navigator.wakeLock.request)navigator.wakeLock.request('screen').then(function(wl){wakeObj=wl;$('wakePill').textContent='WAKE: ON';$('wakePill').className='pill ok';}).catch(function(){}); initAudioCtx(); if(actx&&!keepOsc){try{var o=actx.createOscillator(),g=actx.createGain();o.frequency.value=30;g.gain.value=0.0001;o.connect(g);g.connect(actx.destination);o.start();keepOsc=o;}catch(e){}} }
+  function releaseWakeLock() { if(wakeObj){try{wakeObj.release();}catch(e){}wakeObj=null;} if(keepOsc){try{keepOsc.stop();}catch(e){}keepOsc=null;} $('wakePill').textContent='WAKE: STANDBY'; $('wakePill').className='pill'; }
+  function updatePocketDom() { var d=new Date(); $('pClock').textContent=pad2(d.getHours())+':'+pad2(d.getMinutes()); $('pDist').textContent=(S.runM/1000).toFixed(2)+' km'; $('pSteps').textContent=S.steps; $('pSig').textContent='GPS ±'+(curAcc||0)+'m • '+curSpeed.toFixed(1)+' km/h'; }
+  window.enterPocketMode = function () { sfxClick(); if(!gpsActive)startGpsSteps(); requestWakeLock(); $('pocketOverlay').classList.remove('hidden'); updatePocketDom(); if(pocketClock)clearInterval(pocketClock); pocketClock=setInterval(updatePocketDom,3000); };
+  window.startUnlock = function (e) { if(e&&e.preventDefault)e.preventDefault(); unlockStart=(new Date()).getTime(); if(unlockTimer)clearInterval(unlockTimer); unlockTimer=setInterval(function(){var pct=Math.min(100,(((new Date()).getTime()-unlockStart)/2000)*100);$('unlockProg').style.width=pct+'%';if(pct>=100){clearInterval(unlockTimer);unlockTimer=null;$('unlockProg').style.width='0%';$('pocketOverlay').classList.add('hidden');if(pocketClock){clearInterval(pocketClock);pocketClock=null;}sfxRep();}},40); };
+  window.cancelUnlock = function () { if(unlockTimer){clearInterval(unlockTimer);unlockTimer=null;} $('unlockProg').style.width='0%'; };
+
+  /* === ANTI-SHAKE AI SKELETON + OPTICAL CAMERA === */
+  var camStream = null, camFacing = 'user', camTimer = null, optCanvas = document.createElement('canvas'); optCanvas.width = 48; optCanvas.height = 36;
+  var optBase = null, optBuf = [], camDown = false, downHold = 0, downTs = 0, lastRepTs = 0, mpPose = null, mpLoading = false, mpBusy = false, camSess = 0, formScore = 100;
+  function getCamCfg() { if (S.camSens==='low') return {optDiff:26,angDown:85,angUp:152,line:70}; if (S.camSens==='high') return {optDiff:13,angDown:114,angUp:148,line:40}; return {optDiff:18,angDown:98,angUp:150,line:55}; }
+  function calcAngle(a, b, c) { var rad=Math.atan2(c.y-b.y,c.x-b.x)-Math.atan2(a.y-b.y,a.x-b.x), deg=Math.abs(rad*180/Math.PI); return deg>180?360-deg:deg; }
+  function loadMediaPipe() {
+    if (mpPose || mpLoading || !navigator.onLine) return; mpLoading = true;
+    var sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js';
+    sc.onload = function () { try { if (window.Pose) { mpPose = new window.Pose({locateFile:function(f){return 'https://cdn.jsdelivr.net/npm/@mediapipe/pose/'+f;}}); mpPose.setOptions({modelComplexity:1,smoothLandmarks:true,minDetectionConfidence:0.6,minTrackingConfidence:0.6}); mpPose.onResults(onPoseResults); toast('AI Skeleton Ready'); } } catch (e) {} mpLoading = false; };
+    sc.onerror = function () { mpLoading = false; }; document.head.appendChild(sc);
+  }
+  function onPoseResults(res) {
+    mpBusy = false; var sc = $('skelCanvas'); if (!sc) return;
+    var w = sc.clientWidth||300, h = sc.clientHeight||230; if (sc.width!==w||sc.height!==h){sc.width=w;sc.height=h;}
+    var ctx = sc.getContext('2d'); ctx.clearRect(0,0,w,h);
+    var now = (new Date()).getTime();
+    if (now < camShakeUntil) { $('camCoach').textContent = '⚠ PHONE SHAKING — HOLD STILL'; return; }
+    if (!res||!res.poseLandmarks||S.camEngine!=='skeleton') return;
+    var lm = res.poseLandmarks, visOk = (lm[11]&&lm[13]&&lm[15]&&lm[11].visibility>0.5&&lm[13].visibility>0.5);
+    if (!visOk && S.camEx==='pushup') { $('camCoach').textContent = 'SHOW FULL UPPER BODY IN FRAME'; return; }
+    var ang = 170, backAng = 180;
+    if (S.camEx==='squat') ang = Math.min(calcAngle(lm[23],lm[25],lm[27]),calcAngle(lm[24],lm[26],lm[28]));
+    else if (S.camEx==='situp') ang = Math.min(calcAngle(lm[11],lm[23],lm[25]),calcAngle(lm[12],lm[24],lm[26]));
+    else { ang = Math.min(calcAngle(lm[11],lm[13],lm[15]),calcAngle(lm[12],lm[14],lm[16])); backAng = Math.min(calcAngle(lm[11],lm[23],lm[27]),calcAngle(lm[12],lm[24],lm[28])); }
+    var cfg = getCamCfg(), depth = clamp(Math.round((172-ang)/92*100),0,100), badBack = (S.camEx==='pushup'&&backAng<145);
+    formScore = clamp(100-(badBack?Math.round((155-backAng)*1.4):0),45,100);
+    var pairs = [[11,13],[13,15],[12,14],[14,16],[11,12],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
+    ctx.strokeStyle = badBack?'#ff2a55':(camDown?'#34d399':'#00e5ff'); ctx.lineWidth = 3;
+    for (var i=0;i<pairs.length;i++){var p1=lm[pairs[i][0]],p2=lm[pairs[i][1]]; if(p1&&p2&&p1.visibility>0.4&&p2.visibility>0.4){ctx.beginPath();ctx.moveTo(p1.x*w,p1.y*h);ctx.lineTo(p2.x*w,p2.y*h);ctx.stroke();}}
+    $('camAngleHud').textContent = 'ANGLE: '+Math.round(ang)+'°'; $('camDepth').textContent = depth+'%'; $('camBar').style.width = depth+'%'; $('camFormVal').textContent = formScore+'%';
+    $('camCoach').textContent = badBack?'⚠ FIX HIPS — STRAIGHT BACK':(camDown?'✓ FULL DEPTH — PUSH UP!':'PERFECT FORM • READY');
+    if (!camDown && ang <= cfg.angDown) { downHold += 1; if (downHold >= 2) { camDown = true; downTs = now; $('camStateHud').textContent = 'DOWN'; sfxDown(); } }
+    else if (camDown && ang >= cfg.angUp && (now-lastRepTs)>650) {
+      camDown = false; downHold = 0; lastRepTs = now; camSess += 1; $('camStateHud').textContent = 'REP!';
+      $('camTempoVal').textContent = ((now-downTs)/1000).toFixed(1)+'s'; $('camSessVal').textContent = camSess;
+      if (formScore > S.pr.form) S.pr.form = formScore; countCamRep();
+    } else if (!camDown) { downHold = 0; }
+  }
+  function processOpticalFrame() {
+    var now = (new Date()).getTime();
+    if (now < camShakeUntil) { $('camCoach').textContent = '⚠ PHONE SHAKING — PAUSED'; camDown = false; downHold = 0; optBase = null; return; }
+    var vid = $('camVid'); if (!vid||vid.readyState<2) return;
+    var octx = optCanvas.getContext('2d'); octx.drawImage(vid,0,0,48,36);
+    var d = octx.getImageData(0,0,48,36).data, cSum=0, cCnt=0, eSum=0, eCnt=0;
+    for (var y=0;y<36;y++) for (var x=0;x<48;x++){ var idx=(y*48+x)*4, lum=0.299*d[idx]+0.587*d[idx+1]+0.114*d[idx+2]; if(x>=14&&x<=34&&y>=8&&y<=28){cSum+=lum;cCnt++;}else{eSum+=lum;eCnt++;} }
+    var ratio=(cSum/cCnt)-(eSum/eCnt); optBuf.push(ratio); if(optBuf.length>5) optBuf.shift();
+    var sm=0; for(var k=0;k<optBuf.length;k++) sm+=optBuf[k]; sm/=optBuf.length;
+    if(optBase===null){optBase=sm;return;}
+    var diff=Math.abs(sm-optBase), cfg=getCamCfg();
+    if (diff > 68) { optBase = sm; camDown = false; downHold = 0; $('camCoach').textContent = '⚠ SUDDEN MOVE IGNORED'; return; }
+    var depth=clamp(Math.round((diff/(cfg.optDiff*1.6))*100),0,100);
+    $('camAngleHud').textContent='OPTICAL Δ: '+Math.round(diff); $('camDepth').textContent=depth+'%'; $('camBar').style.width=depth+'%';
+    $('camCoach').textContent = camDown ? '✓ FULL DEPTH — PUSH UP!' : 'STEADY • OPTICAL READY';
+    if(!camDown&&diff>=cfg.optDiff){ downHold+=1; if(downHold>=2){camDown=true;downTs=now;$('camStateHud').textContent='DOWN';sfxDown();} }
+    else if(camDown&&diff<=cfg.optDiff*0.42&&(now-lastRepTs)>650){ camDown=false;downHold=0;lastRepTs=now;camSess+=1;$('camStateHud').textContent='REP!';$('camTempoVal').textContent=((now-downTs)/1000).toFixed(1)+'s';$('camSessVal').textContent=camSess;countCamRep(); }
+    else if(!camDown){ downHold=0; optBase = optBase*0.97 + sm*0.03; }
+  }
+  function countCamRep() { if (S.camEx==='squat') addSquat(1); else if (S.camEx==='situp') addSitup(1); else addPush(1); }
+  window.manualRep = function (n) { if (S.camEx==='squat') addSquat(n); else if (S.camEx==='situp') addSitup(n); else addPush(n); };
+  window.toggleCam = function () {
+    sfxClick(); if (camStream) { stopCam(); return; }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { toast('Use Nose-Tap Pad!'); return; }
+    ensureAccel(); if (S.camEngine==='skeleton') loadMediaPipe();
+    navigator.mediaDevices.getUserMedia({video:{facingMode:camFacing,width:{ideal:320},height:{ideal:240}},audio:false}).then(function(st){
+      camStream=st; var vid=$('camVid'); vid.srcObject=st; $('camBox').classList.remove('hidden'); $('camBtn').textContent='⏹ STOP AI CAM'; $('camBtn').classList.add('on');
+      $('camPill').textContent='LIVE'; $('camPill').className='pill ok'; optBase=null; optBuf=[]; camDown=false; downHold=0; camSess=0; $('camSessVal').textContent='0'; $('camLine').style.left=getCamCfg().line+'%';
+      camTimer=setInterval(function(){ if(S.camEngine==='skeleton'&&mpPose&&!mpBusy&&vid.readyState>=2){mpBusy=true;try{mpPose.send({image:vid});}catch(e){mpBusy=false;}}else processOpticalFrame(); },110);
+    }).catch(function(){toast('Camera denied. Use Nose-Tap!');});
+  };
+  function stopCam() { if(camTimer){clearInterval(camTimer);camTimer=null;} if(camStream){var tr=camStream.getTracks();for(var i=0;i<tr.length;i++)tr[i].stop();camStream=null;} $('camBox').classList.add('hidden'); $('camBtn').textContent='📷 START AI CAM'; $('camBtn').classList.remove('on'); $('camPill').textContent='CAM OFF'; $('camPill').className='pill'; }
+  window.recalCam = function () { optBase=null; optBuf=[]; camDown=false; downHold=0; sfxClick(); toast('Baseline Recalibrated'); };
+  window.flipCam = function () { camFacing=(camFacing==='user')?'environment':'user'; if(camStream){stopCam();toggleCam();} };
+  window.setCamEx = function (ex) { S.camEx=ex; saveState(); renderCamBtns(); sfxClick(); };
+  window.setCamEngine = function (eng) { S.camEngine=eng; if(eng==='skeleton')loadMediaPipe(); saveState(); renderCamBtns(); sfxClick(); };
+  window.setCamSens = function (sn) { S.camSens=sn; $('camLine').style.left=getCamCfg().line+'%'; saveState(); renderCamBtns(); sfxClick(); };
+  function renderCamBtns() { var exs=['pushup','situp','squat']; for(var i=0;i<exs.length;i++)$('ex-'+exs[i]).classList.toggle('on',S.camEx===exs[i]); $('eng-skel').classList.toggle('on',S.camEngine==='skeleton'); $('eng-opt').classList.toggle('on',S.camEngine==='optical'); var sns=['low','med','high']; for(var j=0;j<sns.length;j++)$('sens-'+sns[j]).classList.toggle('on',S.camSens===sns[j]); }
+
+  /* === TIMERS, NUTRITION, RECOVERY, BODY, ID CARD, CALENDAR === */
+  var actTimer = null, actSec = 0;
+  window.stopAllTimers = function () { if(actTimer){clearInterval(actTimer);actTimer=null;} $('restDisp').textContent='00:00'; $('timerLbl').textContent='REST / WARM-UP / HIIT'; sfxClick(); };
+  window.startRest = function (sec) { stopAllTimers(); actSec=sec; $('timerLbl').textContent='REST COOLDOWN'; $('restDisp').textContent=fmtDur(actSec); actTimer=setInterval(function(){actSec-=1;if(actSec<=0){stopAllTimers();sfxArise();vibe([120,80,120]);toast('REST OVER!');}else $('restDisp').textContent=fmtDur(actSec);},1000); };
+  window.startWarmup = function () {
+    stopAllTimers(); var mv=['ARM CIRCLES','JUMPING JACKS','HIGH KNEES','LUNGES','TORSO TWISTS','SHOULDER TAPS'], idx=0; actSec=30; $('timerLbl').textContent='WARM-UP: '+mv[0]; $('restDisp').textContent='00:30'; sfxRep();
+    actTimer=setInterval(function(){actSec-=1;if(actSec<=0){idx+=1;if(idx>=mv.length){stopAllTimers();sfxArise();toast('🔥 WARM-UP DONE!');return;}actSec=30;$('timerLbl').textContent='WARM-UP: '+mv[idx];sfxPacer();}$('restDisp').textContent=fmtDur(actSec);},1000);
+  };
+  window.startHiit = function () {
+    stopAllTimers(); var rnd=1, wk=true; actSec=40; $('timerLbl').textContent='HIIT R1/4: WORK!'; $('restDisp').textContent='00:40'; sfxArise();
+    actTimer=setInterval(function(){actSec-=1;if(actSec<=0){if(wk){wk=false;actSec=20;$('timerLbl').textContent='HIIT R'+rnd+'/4: REST';sfxDown();}else{rnd+=1;if(rnd>4){stopAllTimers();sfxArise();toast('⚡ HIIT COMPLETE!');return;}wk=true;actSec=40;$('timerLbl').textContent='HIIT R'+rnd+'/4: WORK!';sfxPacer();}}$('restDisp').textContent=fmtDur(actSec);},1000);
+  };
+  window.addNut = function (k, v) { if(k==='pro')S.pro+=v; if(k==='cal')S.cal+=v; sfxClick(); saveState(); renderTrain(); };
+  window.resetNutrition = function () { S.pro=0; S.cal=0; S.water=0; saveState(); renderTrain(); toast('Nutrition Reset'); };
+  window.setWater = function (n) { S.water=(S.water===n)?n-1:n; sfxClick(); saveState(); renderTrain(); };
+  window.saveRecovery = function () { S.sleepH=parseFloat($('inSleep').value)||7.5; S.fatigue=clamp(parseInt($('inFat').value,10)||20,0,100); saveState(); renderTrain(); sfxClick(); };
+  window.logBody = function () { var wt=parseFloat($('bWt').value)||S.weight; S.weight=wt; S.bodyLogs.push({d:todayKey().slice(5),wt:wt,ch:$('bCh').value||'-',wa:$('bWa').value||'-',ar:$('bAr').value||'-'}); if(S.bodyLogs.length>14)S.bodyLogs=S.bodyLogs.slice(-14); saveState(); renderStats(); sfxRep(); toast('Measurements Logged!'); };
+  window.openIdCard = function () {
+    sfxArise(); var c=$('idCanvas'), ctx=c.getContext('2d'), grd=ctx.createLinearGradient(0,0,600,360);
+    grd.addColorStop(0,'#040d21'); grd.addColorStop(1,'#091a38'); ctx.fillStyle=grd; ctx.fillRect(0,0,600,360);
+    ctx.strokeStyle='#00e5ff'; ctx.lineWidth=4; ctx.strokeRect(12,12,576,336); ctx.fillStyle='rgba(0,229,255,0.12)'; ctx.fillRect(14,14,572,58);
+    ctx.fillStyle='#00e5ff'; ctx.font='bold 24px monospace'; ctx.fillText('HUNTER ASSOCIATION LICENSE',30,50);
+    ctx.fillStyle='#fbbf24'; ctx.font='bold 26px monospace'; ctx.fillText(getRank(),450,52);
+    ctx.fillStyle='#fff'; ctx.font='bold 34px sans-serif'; ctx.fillText('HUNTER: '+S.name,30,122);
+    ctx.fillStyle='#7aa2c4'; ctx.font='bold 16px monospace'; ctx.fillText('LVL '+S.level+' • STREAK: '+S.streak+'d • GOLD: '+S.gold+'G',30,152);
+    ctx.fillStyle='#e2f3ff'; ctx.font='bold 18px monospace';
+    ctx.fillText('CAREER KM: '+(S.totalRunM/1000).toFixed(1)+' km',30,204); ctx.fillText('PUSH-UPS : '+S.totalPush,30,234); ctx.fillText('SIT-UPS  : '+S.totalSit,30,264); ctx.fillText('SQUATS   : '+S.totalSquat,30,294);
+    ctx.fillStyle='#00e5ff'; ctx.font='bold 16px monospace'; ctx.fillText('STR:'+S.stats.str+' AGI:'+S.stats.agi+' VIT:'+S.stats.vit,350,204); ctx.fillText('SEN:'+S.stats.sen+' INT:'+S.stats.intl,350,234); ctx.fillStyle='#34d399'; ctx.fillText('A.J APEX SYSTEM',350,318);
+    $('idModal').classList.remove('hidden');
+  };
+  window.downloadIdPng = function () { try{var a=document.createElement('a');a.download='AJ_Hunter_License.png';a.href=$('idCanvas').toDataURL('image/png');a.click();toast('Hunter ID PNG Saved!');}catch(e){toast('Screenshot to save!');} };
+  window.shiftCal = function (d) { calMonth+=d; if(calMonth<0){calMonth=11;calYear-=1;} if(calMonth>11){calMonth=0;calYear+=1;} sfxClick(); renderCal(); };
+  window.inspectCalDay = function (dk) {
+    sfxClick(); if(dk===S.dateKey){$('calDetail').textContent=dk+' (TODAY): '+Math.round(S.runM)+'m • '+S.push+'P • '+S.situp+'Si • '+S.squat+'Sq ('+(S.claimed?'CLEARED':calcQuestPct()+'%')+')';return;}
+    for(var i=0;i<S.logs.length;i++) if(S.logs[i].date===dk){var l=S.logs[i];$('calDetail').textContent=dk+' (D'+l.day+'): '+l.runM+'m • '+l.push+'P • '+l.situp+'Si • '+l.squat+'Sq ('+(l.cleared?'CLEARED':l.pct+'%')+')';return;}
+    $('calDetail').textContent=dk+': No training log.';
+  };
+
+  /* === RENDERING PER PAGE === */
+  function makeSvgCrest(col, l) { return '<svg viewBox="0 0 64 64" fill="none"><polygon points="32,4 58,18 58,46 32,60 6,46 6,18" stroke="'+col+'" stroke-width="2.5" fill="rgba(0,0,0,0.45)"/><text x="32" y="39" text-anchor="middle" fill="'+col+'" font-size="20" font-weight="900" font-family="monospace">'+l+'</text></svg>'; }
+  function renderHeader() {
+    var d=new Date(), tr=BGM_TRACKS[S.bgmTrack%BGM_TRACKS.length];
+    $('hGold').textContent=S.gold; $('hLvl').textContent=S.level; $('hRank').textContent=getRank(); $('hStreak').textContent=S.streak;
+    $('hDate').textContent=fmtDateShort(d); $('hXp').textContent=S.xp+'/'+S.xpNext; $('hXpBar').style.width=Math.min(100,(S.xp/S.xpNext)*100)+'%';
+    $('qBgm').classList.toggle('on',S.bgmOn); $('qSfx').classList.toggle('on',S.sfxOn);
+    $('qTrack').textContent='🎵 '+((S.bgmTrack%BGM_TRACKS.length)+1)+'/'+BGM_TRACKS.length+' ⏭'; $('hBgmName').textContent='🎵 '+tr.name;
+    applyTheme();
+  }
+  function renderQuest() {
+    $('qDay').textContent=S.dayNum; $('qPctPill').textContent=calcQuestPct()+'%';
+    $('qRunVal').textContent=Math.round(S.runM); $('qRunGoal').textContent=S.goalRun; $('qRunSub').textContent=(S.runM/1000).toFixed(2)+' km • '+S.steps+' steps'; $('qRunBar').style.width=Math.min(100,(S.runM/S.goalRun)*100)+'%';
+    $('qPushVal').textContent=S.push; $('qPushGoal').textContent=S.goalPush; $('qPushBar').style.width=Math.min(100,(S.push/S.goalPush)*100)+'%';
+    $('qSitVal').textContent=S.situp; $('qSitGoal').textContent=S.goalSit; $('qSitBar').style.width=Math.min(100,(S.situp/S.goalSit)*100)+'%';
+    $('qSquatVal').textContent=S.squat; $('qSquatGoal').textContent=S.goalSquat; $('qSquatBar').style.width=Math.min(100,(S.squat/S.goalSquat)*100)+'%';
+    var ready=(S.runM>=S.goalRun&&S.push>=S.goalPush&&S.situp>=S.goalSit&&S.squat>=S.goalSquat), cb=$('claimBtn');
+    if(S.claimed){cb.textContent='✓ DAILY QUEST CLEARED';cb.className='btn btn-ok mt10';}
+    else if(ready){cb.textContent='⚡ CLAIM +120 XP & +100 GOLD';cb.className='btn btn-pri mt10';}
+    else{cb.textContent='FINISH ALL 4 TO UNLOCK XP';cb.className='btn mt10';}
+    $('devBar').classList.toggle('hidden',!S.devMode);
+  }
+  function renderTrack() {
+    var kcal=Math.round((S.runM/1000)*S.weight*1.03+S.push*0.45+S.situp*0.35+S.squat*0.40);
+    $('tSpeed').textContent=curSpeed.toFixed(1);
+    var avgSpd=(gpsSec>5&&S.runM>10)?((S.runM/1000)/(gpsSec/3600)):curSpeed;
+    $('tPace').textContent=avgSpd>0.5?(Math.floor(60/avgSpd)+':'+pad2(Math.round((60/avgSpd%1)*60))):'--:--';
+    $('tMaxSpd').textContent=maxSpeed.toFixed(1); $('tAltKcal').textContent=curAlt+'m/'+kcal;
+    if(kmSplits.length){$('splitBox').classList.remove('hidden');$('splitBox').textContent='SPLITS: '+kmSplits.join(' | ');}
+    renderCamBtns(); drawMap();
+  }
+  function renderTrain() {
+    var proG=Math.round(S.weight*1.8), calG=Math.round(S.weight*32);
+    $('nutProVal').textContent=S.pro; $('nutProGoal').textContent=proG; $('nutProBar').style.width=Math.min(100,(S.pro/proG)*100)+'%';
+    $('nutCalVal').textContent=S.cal; $('nutCalGoal').textContent=calG; $('nutCalBar').style.width=Math.min(100,(S.cal/calG)*100)+'%';
+    $('waterTxt').textContent=S.water+' / 8 GLASSES';
+    var wh=''; for(var w=1;w<=8;w++) wh+='<div class="flask'+(w<=S.water?' full':'')+'" onclick="setWater('+w+')">&#128167;</div>'; $('waterRow').innerHTML=wh;
+    $('inSleep').value=S.sleepH; $('inFat').value=S.fatigue;
+    var ok=(S.sleepH>=7&&S.fatigue<=40), warn=(S.sleepH<5.5||S.fatigue>=70);
+    $('recPill').textContent=warn?'RECOVERY DAY':(ok?'PEAK READY':'MODERATE'); $('recPill').className='pill '+(warn?'bad':(ok?'ok':'warn'));
+    $('recTxt').textContent='Sleep '+S.sleepH+'h • Fatigue '+S.fatigue+'% → '+(warn?'LIGHT RECOVERY RECOMMENDED.':(ok?'HEAVY TRAINING READY!':'MODERATE VOLUME.'));
+  }
+  function renderStats() {
+    $('stName').textContent=S.name; $('stRank').textContent=getRank(); $('stTitle').textContent=S.inv.titleOne?'ARMY OF ONE':(S.rankTier>=5?'SHADOW MONARCH':'AWAKENED PLAYER');
+    $('stJob').textContent=S.level>=6?'NECROMANCER':'HUNTER';
+    var hm=Math.max(1.2,S.height/100); $('stBmi').textContent=(S.weight/(hm*hm)).toFixed(1);
+    $('cKm').textContent=(S.totalRunM/1000).toFixed(1); $('cPush').textContent=S.totalPush; $('cSit').textContent=S.totalSit; $('cSquat').textContent=S.totalSquat;
+    $('statPtsPill').textContent='FREE PTS: '+(S.statPts||0);
+    $('sStr').textContent=S.stats.str; $('sAgi').textContent=S.stats.agi; $('sVit').textContent=S.stats.vit; $('sSen').textContent=S.stats.sen; $('sInt').textContent=S.stats.intl;
+    $('prRun').textContent=(S.pr.runM/1000).toFixed(1)+'k'; $('prPush').textContent=S.pr.push; $('prSpd').textContent=S.pr.maxSpd.toFixed(1); $('prForm').textContent=S.pr.form?(S.pr.form+'%'):'--%';
+    $('bWt').value=S.weight;
+    var svg=$('radarSvg'), cx=115, cy=96, R=62, vals=[S.stats.str,S.stats.agi,S.stats.vit,S.stats.sen,S.stats.intl], lbls=['STR','AGI','VIT','SEN','INT'], mx=25, out='', poly='';
+    for(var m=0;m<vals.length;m++) if(vals[m]>mx) mx=vals[m];
+    for(var ring=1;ring<=3;ring++){var r=(R*ring)/3,pts='';for(var i=0;i<5;i++){var a=-Math.PI/2+i*(Math.PI*2/5);pts+=(cx+Math.cos(a)*r).toFixed(1)+','+(cy+Math.sin(a)*r).toFixed(1)+' ';}out+='<polygon points="'+pts+'" fill="none" stroke="rgba(0,229,255,0.22)"/>';}
+    for(var j=0;j<5;j++){var ang=-Math.PI/2+j*(Math.PI*2/5),rv=R*(vals[j]/mx);poly+=(cx+Math.cos(ang)*rv).toFixed(1)+','+(cy+Math.sin(ang)*rv).toFixed(1)+' ';out+='<text x="'+(cx+Math.cos(ang)*(R+17)).toFixed(1)+'" y="'+(cy+Math.sin(ang)*(R+15)+4).toFixed(1)+'" text-anchor="middle" fill="#7aa2c4" font-size="10" font-weight="800" font-family="monospace">'+lbls[j]+'</text>';}
+    svg.innerHTML=out+'<polygon points="'+poly+'" fill="rgba(0,229,255,0.26)" stroke="#00e5ff" stroke-width="2"/>';
+    var wsvg=$('wtSvg');
+    if(S.bodyLogs.length<2) wsvg.innerHTML='<text x="160" y="48" text-anchor="middle" fill="#7aa2c4" font-size="11" font-family="monospace">Log 2+ weights for trend graph</text>';
+    else {
+      var mn=999, mxx=0, p2='', d2=''; for(var b=0;b<S.bodyLogs.length;b++){if(S.bodyLogs[b].wt<mn)mn=S.bodyLogs[b].wt;if(S.bodyLogs[b].wt>mxx)mxx=S.bodyLogs[b].wt;} if(mxx===mn){mxx+=2;mn-=2;}
+      for(var q=0;q<S.bodyLogs.length;q++){var x=22+q*(276/(S.bodyLogs.length-1)), y=72-((S.bodyLogs[q].wt-mn)/(mxx-mn))*52; p2+=x.toFixed(1)+','+y.toFixed(1)+' '; d2+='<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="3.5" fill="#00e5ff"/>';}
+      wsvg.innerHTML='<polyline points="'+p2+'" fill="none" stroke="#00e5ff" stroke-width="2.5"/>'+d2+'<text x="8" y="16" fill="#7aa2c4" font-size="9" font-family="monospace">'+mxx.toFixed(1)+'kg</text><text x="8" y="84" fill="#7aa2c4" font-size="9" font-family="monospace">'+mn.toFixed(1)+'kg</text>';
+    }
+  }
+  function renderCal() {
+    $('calTitle').textContent=MONTHS[calMonth]+' '+calYear; var map={}; for(var i=0;i<S.logs.length;i++) map[S.logs[i].date]=S.logs[i];
+    var html=''; for(var h=0;h<7;h++) html+='<div class="cal-h mono">'+DAYS[h].slice(0,2)+'</div>';
+    var fd=(new Date(calYear,calMonth,1)).getDay(), dim=(new Date(calYear,calMonth+1,0)).getDate();
+    for(var e=0;e<fd;e++) html+='<div class="cal-d empty"></div>';
+    for(var d=1;d<=dim;d++){ var dk=calYear+'-'+pad2(calMonth+1)+'-'+pad2(d), cls='cal-d mono'; if(dk===S.dateKey)cls+=' today'+(S.claimed?' ok':''); else if(map[dk])cls+=map[dk].cleared?' ok':' miss'; html+='<div class="'+cls+'" onclick="inspectCalDay(\''+dk+'\')">'+d+'</div>'; }
+    $('calGrid').innerHTML=html;
+    var ah=''; for(var a=0;a<ACHS.length;a++){var ok=ACHS[a].check(S); ah+='<div class="ach-card'+(ok?' unlocked':'')+'"><div class="mono" style="font-size:11px;font-weight:900;color:var(--ac);">'+(ok?'★ ':'🔒 ')+ACHS[a].name+'</div><div class="xs mt6">'+ACHS[a].desc+'</div></div>';}
+    $('achGrid').innerHTML=ah;
+    if(!S.logs.length)$('logList').innerHTML='<div class="xs mono">No archived days yet.</div>';
+    else{var lh='';for(var l=0;l<Math.min(10,S.logs.length);l++){var it=S.logs[l];lh+='<div class="q-item row"><div><div class="mono" style="font-size:11px;font-weight:800;">DAY '+it.day+' &bull; '+it.date+'</div><div class="xs mono">'+it.runM+'m &bull; '+it.push+'P &bull; '+it.situp+'Si &bull; '+it.squat+'Sq</div></div><span class="pill '+(it.cleared?'ok':'bad')+'">'+(it.cleared?'CLEARED':it.pct+'%')+'</span></div>';}$('logList').innerHTML=lh;}
+  }
+  function renderDomain() {
+    var ex=EXAMS[S.rankTier]; if(ex){$('exRankPill').textContent='NEXT: '+ex.next;$('exDesc').textContent='Need Level '+ex.lvl+' + Today: '+ex.run+'m Run & '+ex.push+' Push-ups.';}else{$('exRankPill').textContent='MAX RANK';$('exDesc').textContent='Shadow Monarch Achieved!';}
+    var b=BOSSES[S.bossIdx%BOSSES.length]; $('bIdx').textContent=(S.bossIdx%BOSSES.length)+1; $('bName').textContent=b.name; $('bDesc').textContent=b.desc;
+    $('bHpTxt').textContent=Math.max(0,Math.round(S.bossHp))+' / '+b.maxHp; $('bHpBar').style.width=Math.max(0,(S.bossHp/b.maxHp)*100)+'%'; $('bKills').textContent=S.bossKills;
+    $('bossArt').innerHTML=makeSvgCrest(b.col,b.name.charAt(0)); $('shopGold').textContent=S.gold; $('invFreeze').textContent=S.inv.freeze; $('invTicket').textContent=S.inv.ticket;
+    $('buyGoldBtn').textContent=S.inv.goldTheme?'OWNED':'200 G'; $('buyTitleBtn').textContent=S.inv.titleOne?'OWNED':'150 G'; $('shCount').textContent=S.shadows.length+' / '+SHADOWS.length;
+    var sh=''; for(var i=0;i<SHADOWS.length;i++){var s=SHADOWS[i],un=S.shadows.indexOf(s.id)!==-1||S.level>=s.reqLvl,prog=Math.min(100,Math.round((S.level/s.reqLvl)*100)); sh+='<div class="q-item row" style="align-items:center;"><div class="art-slot" style="width:46px;height:46px;">'+makeSvgCrest(s.col,s.name.charAt(0))+'</div><div style="flex:1;"><div class="row"><b style="font-size:13px;color:'+s.col+';">'+s.name+'</b><span class="pill '+(un?'ok':'')+'">'+(un?'PWR '+s.pwr:'LVL '+s.reqLvl)+'</span></div><div class="xs">'+s.role+'</div><div class="bar-bg mt6"><div class="bar-fill'+(un?' ok':'')+'" style="width:'+prog+'%;"></div></div></div></div>';}
+    $('shadowList').innerHTML=sh;
+  }
+  function renderSystem() {
+    $('inAlarmTime').value=S.alarmTime; $('inAlarmLbl').value=S.alarmLabel; $('alarmToneSel').value=S.alarmTone||'0';
+    $('alarmSongTxt').textContent=S.alarmSongName?('Loaded: '+S.alarmSongName+(customAlarmUrl?' (READY)':' (Re-select file after restart)')):'No custom song imported yet.';
+    $('slAlm').value=Math.round((S.almVol||1)*100); $('vAlmTxt').textContent=Math.round((S.almVol||1)*100)+'%';
+    $('alarmPill').textContent=S.alarmOn?('ON • '+S.alarmTime):'OFF'; $('alarmPill').className='pill '+(S.alarmOn?'ok':'');
+    $('alarmToggleBtn').textContent=S.alarmOn?'🔕 DISABLE ALARM':'⏰ ENABLE ALARM'; $('alarmToggleBtn').className=S.alarmOn?'btn btn-bad':'btn btn-ok';
+    $('togVib').textContent='VIB: '+(S.vibOn?'ON':'OFF'); $('togVib').classList.toggle('on',S.vibOn);
+    $('togFx').textContent='FX: '+(S.fxOn?'ON':'OFF'); $('togFx').classList.toggle('on',S.fxOn);
+    $('togPac').textContent='PACER: '+(S.pacerOn?'ON':'OFF'); $('togPac').classList.toggle('on',S.pacerOn);
+    $('pinPill').textContent=S.pinOn?'LOCKED':'OFF'; $('pinPill').className='pill '+(S.pinOn?'ok':'');
+    $('pinToggleBtn').textContent=S.pinOn?'DISABLE PIN':'ENABLE PIN'; $('pinToggleBtn').className=S.pinOn?'btn btn-bad':'btn btn-ok';
+    var ths=['cyan','violet','crimson','emerald','pink','gold','rgb','sdark','slight']; for(var t=0;t<ths.length;t++) $('th-'+ths[t]).classList.toggle('on',S.accent===ths[t]);
+    var bh=''; for(var i=0;i<BGM_TRACKS.length;i++){var active=(S.bgmTrack===i&&S.bgmOn); bh+='<button class="btn bgm-btn mt6'+(active?' on':'')+'" onclick="selectBgm('+i+')"><span>'+(i+1)+'. '+BGM_TRACKS[i].name+'<br><small style="opacity:0.75;font-weight:600;text-transform:none;">'+BGM_TRACKS[i].vibe+'</small></span><span>'+(active?'▶':'♪')+'</span></button>';}
+    $('bgmList').innerHTML=bh; $('bgmStatPill').textContent=S.bgmOn?'PLAYING':'MUTED'; $('bgmStatPill').className='pill '+(S.bgmOn?'ok':'warn');
+    $('slBgm').value=Math.round(S.bgmVol*100); $('vBgmTxt').textContent=Math.round(S.bgmVol*100)+'%';
+    $('slSfx').value=Math.round(S.sfxVol*100); $('vSfxTxt').textContent=Math.round(S.sfxVol*100)+'%';
+    $('inName').value=S.name; $('inH').value=S.height; $('inW').value=S.weight; $('inStride').value=S.stride;
+    $('inGRun').value=S.goalRun; $('inGPush').value=S.goalPush; $('inGSit').value=S.goalSit; $('inGSquat').value=S.goalSquat;
+    $('devToggleBtn').textContent='DEV MODE: '+(S.devMode?'ON':'OFF');
+  }
+  function renderAll() {
+    renderHeader(); renderQuest();
+    if(S.tab==='track')renderTrack(); if(S.tab==='train')renderTrain(); if(S.tab==='stats')renderStats();
+    if(S.tab==='cal')renderCal(); if(S.tab==='domain')renderDomain(); if(S.tab==='system')renderSystem();
+  }
+
+  /* === PUBLIC ACTIONS === */
+  window.enterSystem = function (withAudio) { $('entryOverlay').classList.add('hidden'); if(withAudio){initAudioCtx();sfxArise();startBgm();showDialogue('welcome',0);}else{showDialogue('quest',0);} renderAll(); };
+  window.switchTab = function (tab) { sfxClick(); S.tab=tab; var tabs=['quest','track','train','stats','cal','domain','system']; for(var i=0;i<tabs.length;i++){$('tab-'+tabs[i]).classList.toggle('hidden',tabs[i]!==tab);$('nav-'+tabs[i]).classList.toggle('active',tabs[i]===tab);} saveState(); renderAll(); dlgIdx+=1; showDialogue(tab); };
+  window.nextDialogue = function () { dlgIdx+=1; showDialogue(S.tab); };
+  window.toggleQuick = function (k) { initAudioCtx(); if(k==='bgm'){S.bgmOn=!S.bgmOn;if(S.bgmOn)startBgm();else stopBgm();} if(k==='sfx')S.sfxOn=!S.sfxOn; saveState(); renderHeader(); if(S.tab==='system')renderSystem(); sfxClick(); };
+  window.togglePref = function (k) { S[k]=!S[k]; saveState(); applyTheme(); renderSystem(); sfxClick(); if(k==='vibOn'&&S.vibOn)vibe(60); };
+  window.claimDailyQuest = function () {
+    if(S.claimed){toast('Daily Quest XP already claimed today!');return;}
+    if(S.runM<S.goalRun||S.push<S.goalPush||S.situp<S.goalSit||S.squat<S.goalSquat){toast('Complete ALL 4 for XP!');return;}
+    S.claimed=true; S.penalty=false; S.questsCleared+=1; S.streak+=1; S.gold+=100; if(S.streak>S.bestStreak)S.bestStreak=S.streak;
+    gainDailyQuestXp(120); showCutscene('QUEST CLEARED','ALL 4 TARGETS COMPLETED','+120 XP • +100 Gold • Streak: '+S.streak+'d!','&#127942;'); saveState(); renderAll();
+  };
+  window.showCutscene = function (title, sub, msg, ico) { $('cutTitle').textContent=title; $('cutSub').textContent=sub; $('cutMsg').innerHTML=msg; $('cutIco').innerHTML=ico||'&#9889;'; $('cutscene').classList.remove('hidden'); sfxArise(); };
+  window.closeCutscene = function () { $('cutscene').classList.add('hidden'); };
+  window.setVol = function (k, v) { var f=clamp(parseInt(v,10)||0,0,100)/100; if(k==='bgm'){S.bgmVol=f;$('vBgmTxt').textContent=v+'%';} if(k==='sfx'){S.sfxVol=f;$('vSfxTxt').textContent=v+'%';} if(k==='alm'){S.almVol=f;$('vAlmTxt').textContent=v+'%';} saveState(); };
+  window.setAccent = function (a) { if(a==='gold'&&!S.inv.goldTheme){toast('Unlock GOLD Theme in DOMAIN Shop (200G)!');return;} S.accent=a; saveState(); renderAll(); sfxClick(); };
+  window.replayEntry = function () { $('entryOverlay').classList.remove('hidden'); };
+  window.toggleDevMode = function () { S.devMode=!S.devMode; saveState(); renderAll(); };
+  window.saveProfile = function () {
+    S.name=($('inName').value||'A.J').toUpperCase(); S.height=clamp(parseFloat($('inH').value)||175,120,230); S.weight=clamp(parseFloat($('inW').value)||68,30,200); S.stride=clamp(parseFloat($('inStride').value)||0.76,0.4,1.3);
+    S.goalRun=clamp(parseInt($('inGRun').value,10)||4000,500,30000); S.goalPush=clamp(parseInt($('inGPush').value,10)||100,10,500); S.goalSit=clamp(parseInt($('inGSit').value,10)||100,10,500); S.goalSquat=clamp(parseInt($('inGSquat').value,10)||100,10,500);
+    saveState(); renderAll(); sfxRep(); toast('Profile Saved');
+  };
+  window.exportBackup = function () { $('bkBox').value=JSON.stringify(S); toast('Backup JSON Ready'); };
+  window.importBackup = function () { try{var obj=JSON.parse($('bkBox').value);for(var k in obj)if(obj.hasOwnProperty(k))S[k]=obj[k];saveState();renderAll();sfxRep();toast('Restored!');}catch(e){toast('Invalid JSON!');} };
+  window.resetAllData = function () { if(!confirm('Reset ALL A.J progress?'))return; localStorage.removeItem(STORE_KEY); S=defaultState(); saveState(); renderAll(); toast('Factory Reset Done'); };
+  window.addRun=addRun; window.addPush=addPush; window.addSitup=addSitup; window.addSquat=addSquat;
+  window.completeAllDev = function () { S.runM=S.goalRun; S.push=S.goalPush; S.situp=S.goalSit; S.squat=S.goalSquat; saveState(); renderAll(); sfxRep(); toast('All 4 Filled — Tap CLAIM XP!'); };
+  window.triggerPenalty = function () { S.penalty=!S.penalty; saveState(); renderAll(); if(S.penalty)showCutscene('PENALTY ZONE','QUEST FAILED','Use Penalty Ticket in DOMAIN Shop or survive!','&#128128;'); };
+  window.simulateNextDay = function () { checkDailyRollover(true); renderAll(); sfxClick(); toast('Archived & Advanced to Day '+S.dayNum); };
+
+  function tickClock() {
+    var now=new Date(); if(todayKey(now)!==S.dateKey){checkDailyRollover(false);renderAll();}
+    var mid=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1,0,0,0), sec=Math.max(0,Math.floor((mid.getTime()-now.getTime())/1000));
+    $('qTimer').textContent=pad2(Math.floor(sec/3600))+':'+pad2(Math.floor((sec%3600)/60))+':'+pad2(sec%60);
+    var hhmm=pad2(now.getHours())+':'+pad2(now.getMinutes());
+    if(S.alarmOn&&(hhmm===S.alarmTime||(snoozeTarget&&hhmm===snoozeTarget))&&lastAlarmMin!==hhmm){lastAlarmMin=hhmm;snoozeTarget='';triggerAlarm(false);}
+  }
+
+  loadState(); checkPinLock(); initMana(); tickClock(); setInterval(tickClock, 1000); renderAll();
+})();
+</script>
+</body>
+</html>
