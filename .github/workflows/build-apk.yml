@@ -70,8 +70,8 @@ jobs:
                   applicationId = "com.aj.system"
                   minSdk = 24
                   targetSdk = 34
-                  versionCode = 1
-                  versionName = "1.0"
+                  versionCode = 2
+                  versionName = "2.0"
               }
               buildTypes {
                   release { isMinifyEnabled = false }
@@ -91,6 +91,8 @@ jobs:
               <uses-permission android:name="android.permission.CAMERA" />
               <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
               <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
               <uses-permission android:name="android.permission.VIBRATE" />
               <uses-permission android:name="android.permission.WAKE_LOCK" />
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -113,6 +115,10 @@ jobs:
                       </intent-filter>
                   </activity>
                   <receiver android:name=".AlarmReceiver" android:exported="false" />
+                  <service
+                      android:name=".LocationService"
+                      android:exported="false"
+                      android:foregroundServiceType="location" />
               </application>
           </manifest>
           EOF
@@ -192,6 +198,186 @@ jobs:
           }
           EOF
 
+          cat << 'EOF' > app/src/main/java/com/aj/system/LocationService.kt
+          package com.aj.system
+
+          import android.Manifest
+          import android.app.Notification
+          import android.app.NotificationChannel
+          import android.app.NotificationManager
+          import android.app.PendingIntent
+          import android.app.Service
+          import android.content.Context
+          import android.content.Intent
+          import android.content.pm.PackageManager
+          import android.content.pm.ServiceInfo
+          import android.location.Location
+          import android.location.LocationListener
+          import android.location.LocationManager
+          import android.os.Build
+          import android.os.Bundle
+          import android.os.IBinder
+          import java.util.Locale
+
+          class LocationService : Service(), LocationListener {
+              companion object {
+                  const val CH_ID = "aj_gps_channel_v1"
+                  const val NOTIF_ID = 3001
+                  var isRunning = false
+                  var totalDistM = 0.0
+                  var maxSpeedKmh = 0.0
+                  var elevGainM = 0.0
+                  var startTimeMs = 0L
+                  var pointCount = 0
+                  var latestJson = ""
+                  var onLocationUpdate: ((String) -> Unit)? = null
+              }
+
+              private lateinit var lm: LocationManager
+              private var lastLoc: Location? = null
+              private var lastNotifMs = 0L
+
+              override fun onBind(intent: Intent?): IBinder? = null
+
+              override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+                  val hasFine = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                  val hasCoarse = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                  if (!hasFine && !hasCoarse) {
+                      stopSelf()
+                      return START_NOT_STICKY
+                  }
+
+                  if (intent?.getBooleanExtra("reset", false) == true || !isRunning) {
+                      totalDistM = 0.0
+                      maxSpeedKmh = 0.0
+                      elevGainM = 0.0
+                      pointCount = 0
+                      lastLoc = null
+                      startTimeMs = System.currentTimeMillis()
+                  }
+
+                  isRunning = true
+                  createChannel()
+                  val notif = buildNotif("Locking real-time GPS signal...")
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                      startForeground(NOTIF_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+                  } else {
+                      startForeground(NOTIF_ID, notif)
+                  }
+
+                  lm = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                  try {
+                      val cached = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                          ?: lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+                      if (cached != null) emitLocation(cached, isCached = true)
+                  } catch (_: Exception) {}
+
+                  try {
+                      if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                          lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 1f, this)
+                      }
+                  } catch (_: Exception) {}
+                  try {
+                      if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                          lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 2000L, 2f, this)
+                      }
+                  } catch (_: Exception) {}
+
+                  return START_STICKY
+              }
+
+              override fun onLocationChanged(location: Location) {
+                  emitLocation(location, isCached = false)
+              }
+
+              private fun emitLocation(loc: Location, isCached: Boolean) {
+                  if (!isCached) {
+                      val prev = lastLoc
+                      if (prev != null) {
+                          val d = prev.distanceTo(loc).toDouble()
+                          if (loc.accuracy <= 35f && d >= 1.5 && d <= 120.0) {
+                              totalDistM += d
+                              if (loc.hasAltitude() && prev.hasAltitude()) {
+                                  val dAlt = loc.altitude - prev.altitude
+                                  if (dAlt > 1.0 && dAlt < 30.0) elevGainM += dAlt
+                              }
+                          }
+                      }
+                      if (loc.accuracy <= 50f) {
+                          lastLoc = loc
+                          pointCount++
+                      }
+                  }
+
+                  val speedMs = if (loc.hasSpeed()) loc.speed.toDouble() else 0.0
+                  val speedKmh = if (speedMs * 3.6 > 0.4) speedMs * 3.6 else 0.0
+                  if (speedKmh > maxSpeedKmh && speedKmh < 150.0) maxSpeedKmh = speedKmh
+
+                  val elapsedSec = ((System.currentTimeMillis() - startTimeMs) / 1000L).coerceAtLeast(1L)
+                  val avgSpeedKmh = (totalDistM / elapsedSec.toDouble()) * 3.6
+                  val kcal = (totalDistM / 1000.0) * 65.0
+                  val steps = (totalDistM / 0.78).toInt()
+                  val bearing = if (loc.hasBearing()) loc.bearing.toDouble() else 0.0
+                  val alt = if (loc.hasAltitude()) loc.altitude else 0.0
+
+                  val json = String.format(
+                      Locale.US,
+                      "{\"lat\":%.6f,\"lng\":%.6f,\"acc\":%.1f,\"spd\":%.2f,\"spdMs\":%.2f,\"maxSpd\":%.2f,\"avgSpd\":%.2f,\"alt\":%.1f,\"elevGain\":%.1f,\"bearing\":%.1f,\"distM\":%.1f,\"kcal\":%.1f,\"steps\":%d,\"pts\":%d,\"sec\":%d,\"bg\":true}",
+                      loc.latitude, loc.longitude, loc.accuracy, speedKmh, speedMs,
+                      maxSpeedKmh, avgSpeedKmh, alt, elevGainM, bearing,
+                      totalDistM, kcal, steps, pointCount, elapsedSec
+                  )
+                  latestJson = json
+                  onLocationUpdate?.invoke(json)
+
+                  val now = System.currentTimeMillis()
+                  if (now - lastNotifMs >= 2000L) {
+                      lastNotifMs = now
+                      val km = totalDistM / 1000.0
+                      val mins = elapsedSec / 60
+                      val secs = elapsedSec % 60
+                      val text = String.format(Locale.US, "%.2f km • %.1f km/h • %02d:%02d • ±%.0fm", km, speedKmh, mins, secs, loc.accuracy)
+                      val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                      nm.notify(NOTIF_ID, buildNotif(text))
+                  }
+              }
+
+              private fun createChannel() {
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                      val ch = NotificationChannel(CH_ID, "A.J Real-Time GPS", NotificationManager.IMPORTANCE_LOW)
+                      nm.createNotificationChannel(ch)
+                  }
+              }
+
+              private fun buildNotif(text: String): Notification {
+                  val openIntent = Intent(this, MainActivity::class.java).apply {
+                      flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                  }
+                  val pi = PendingIntent.getActivity(this, 1, openIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                  val b = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Notification.Builder(this, CH_ID)
+                  else @Suppress("DEPRECATION") Notification.Builder(this)
+                  return b.setContentTitle("A.J PRO GPS ACTIVE")
+                      .setContentText(text)
+                      .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+                      .setContentIntent(pi)
+                      .setOngoing(true)
+                      .build()
+              }
+
+              override fun onDestroy() {
+                  isRunning = false
+                  try { lm.removeUpdates(this) } catch (_: Exception) {}
+                  super.onDestroy()
+              }
+
+              @Deprecated("Deprecated in Java")
+              override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+              override fun onProviderEnabled(provider: String) {}
+              override fun onProviderDisabled(provider: String) {}
+          }
+          EOF
+
           cat << 'EOF' > app/src/main/java/com/aj/system/MainActivity.kt
           package com.aj.system
 
@@ -266,7 +452,19 @@ jobs:
                           }
                       }
                   }
+
+                  LocationService.onLocationUpdate = { json ->
+                      runOnUiThread {
+                          web.evaluateJavascript("window.__onAJNativeGps && window.__onAJNativeGps($json);", null)
+                      }
+                  }
+
                   web.loadUrl("file:///android_asset/index.html")
+              }
+
+              override fun onDestroy() {
+                  LocationService.onLocationUpdate = null
+                  super.onDestroy()
               }
 
               private fun requestAppPerms() {
@@ -296,6 +494,31 @@ jobs:
               }
 
               class AJBridge(private val ctx: Context) {
+                  @JavascriptInterface
+                  fun startBgGps(reset: Boolean) {
+                      val hasLoc = ctx.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                                   ctx.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                      if (!hasLoc) return
+                      val i = Intent(ctx, LocationService::class.java).apply { putExtra("reset", reset) }
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ctx.startForegroundService(i)
+                      else ctx.startService(i)
+                  }
+
+                  @JavascriptInterface
+                  fun stopBgGps() {
+                      ctx.stopService(Intent(ctx, LocationService::class.java))
+                  }
+
+                  @JavascriptInterface
+                  fun getBgGpsState(): String {
+                      return LocationService.latestJson
+                  }
+
+                  @JavascriptInterface
+                  fun isBgGpsRunning(): Boolean {
+                      return LocationService.isRunning
+                  }
+
                   @JavascriptInterface
                   fun scheduleAlarm(hour: Int, minute: Int, label: String) {
                       val am = ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -342,27 +565,261 @@ jobs:
 
           HTML_FILE=$(find . -maxdepth 1 -iname "index.html" | head -n 1)
           cp "$HTML_FILE" app/src/main/assets/index.html
+
+          python3 - << 'PYEOF'
+          import re
+          path = "app/src/main/assets/index.html"
+          with open(path, "r", encoding="utf-8", errors="ignore") as f:
+              html = f.read()
+          # Replace broken Carto tile URLs (API KEY REQUIRED) with free OSM tiles
+          html = re.sub(
+              r'https?://[^"\'\s`]*carto[^"\'\s`]*\{z\}[^"\'\s`]*',
+              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              html,
+              flags=re.IGNORECASE
+          )
+          with open(path, "w", encoding="utf-8") as f:
+              f.write(html)
+          PYEOF
+
           cat << 'EOF' >> app/src/main/assets/index.html
+          <style>
+            .aj-dark-tiles .leaflet-tile-pane {
+              filter: invert(100%) hue-rotate(185deg) brightness(92%) contrast(96%) saturate(135%);
+            }
+            #ajProGpsHud {
+              margin: 10px 0 6px 0;
+              padding: 10px;
+              border-radius: 12px;
+              background: linear-gradient(145deg, rgba(6,18,32,0.95), rgba(10,28,48,0.92));
+              border: 1px solid rgba(0,229,255,0.45);
+              box-shadow: 0 0 14px rgba(0,229,255,0.18);
+              font-family: monospace, sans-serif;
+              color: #e0f7ff;
+            }
+            .aj-hud-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; }
+            .aj-hud-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
+            .aj-hud-box {
+              background: rgba(0,0,0,0.42);
+              border: 1px solid rgba(0,229,255,0.22);
+              border-radius: 8px;
+              padding: 6px 4px;
+              text-align: center;
+            }
+            .aj-hud-lbl { font-size: 9px; color: #7ec8e3; letter-spacing: 0.6px; }
+            .aj-hud-val { font-size: 13px; font-weight: 700; color: #00f0ff; margin-top: 2px; }
+            .aj-layer-btn {
+              flex: 1;
+              padding: 5px 4px;
+              font-size: 10px;
+              font-weight: 700;
+              border-radius: 6px;
+              border: 1px solid rgba(0,229,255,0.35);
+              background: rgba(0,20,38,0.85);
+              color: #9be7ff;
+              cursor: pointer;
+            }
+            .aj-layer-btn.active {
+              background: #00e5ff;
+              color: #03131f;
+              box-shadow: 0 0 10px rgba(0,229,255,0.6);
+            }
+            .aj-bg-pill {
+              font-size: 10px;
+              padding: 3px 8px;
+              border-radius: 99px;
+              font-weight: 700;
+              background: rgba(255,196,0,0.18);
+              color: #ffd54f;
+              border: 1px solid rgba(255,196,0,0.45);
+            }
+            .aj-bg-pill.live {
+              background: rgba(0,230,118,0.18);
+              color: #00e676;
+              border-color: rgba(0,230,118,0.6);
+            }
+          </style>
           <script>
           (function(){
-            if (!window.AJNative) return;
-            var origAlm = window.saveToggleAlarm;
-            if (origAlm) {
-              window.saveToggleAlarm = function () {
-                origAlm();
-                try {
-                  var t = (document.getElementById('inAlarmTime').value || '06:00').split(':');
-                  var lbl = document.getElementById('inAlarmLbl').value || 'DAILY QUEST — ARISE!';
-                  var pill = document.getElementById('alarmPill').textContent || '';
-                  if (pill.indexOf('ON') === 0) {
-                    window.AJNative.scheduleAlarm(parseInt(t[0],10), parseInt(t[1],10), lbl);
-                    window.AJNative.showNotif('A.J ALARM SET', 'Background alarm active for ' + t[0] + ':' + t[1]);
-                  } else {
-                    window.AJNative.cancelAlarm();
-                  }
-                } catch (e) {}
+            // 1. Native Alarm Bridge
+            if (window.AJNative) {
+              var origAlm = window.saveToggleAlarm;
+              if (origAlm) {
+                window.saveToggleAlarm = function () {
+                  origAlm();
+                  try {
+                    var t = (document.getElementById('inAlarmTime').value || '06:00').split(':');
+                    var lbl = document.getElementById('inAlarmLbl').value || 'DAILY QUEST — ARISE!';
+                    var pill = document.getElementById('alarmPill').textContent || '';
+                    if (pill.indexOf('ON') === 0) {
+                      window.AJNative.scheduleAlarm(parseInt(t[0],10), parseInt(t[1],10), lbl);
+                      window.AJNative.showNotif('A.J ALARM SET', 'Background alarm active for ' + t[0] + ':' + t[1]);
+                    } else {
+                      window.AJNative.cancelAlarm();
+                    }
+                  } catch (e) {}
+                };
+              }
+            }
+
+            // 2. Patch Leaflet Map Layers (Zero API Key: Dark Cyber, Satellite, Street, Topo)
+            var ajMaps = [];
+            var ajActiveTileLayer = null;
+            var ajLayerUrls = {
+              dark: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              sat: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{x}/{y}',
+              street: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              topo: 'https://tile.opentopomap.org/{z}/{x}/{y}.png'
+            };
+
+            function patchLeaflet() {
+              if (!window.L || window.L.__ajPatched) return;
+              window.L.__ajPatched = true;
+              var origMap = window.L.map;
+              window.L.map = function() {
+                var m = origMap.apply(this, arguments);
+                ajMaps.push(m);
+                try { m.getContainer().classList.add('aj-dark-tiles'); } catch(e) {}
+                return m;
+              };
+              var origTile = window.L.tileLayer;
+              window.L.tileLayer = function(url, opts) {
+                if (typeof url === 'string' && /carto/i.test(url)) {
+                  url = ajLayerUrls.dark;
+                }
+                var tl = origTile.call(this, url, opts || { maxZoom: 19 });
+                ajActiveTileLayer = tl;
+                return tl;
               };
             }
+            patchLeaflet();
+            document.addEventListener('DOMContentLoaded', patchLeaflet);
+
+            window.__ajSetMapMode = function(mode) {
+              document.querySelectorAll('.aj-layer-btn').forEach(function(b) {
+                b.classList.toggle('active', b.getAttribute('data-mode') === mode);
+              });
+              var url = ajLayerUrls[mode] || ajLayerUrls.dark;
+              document.querySelectorAll('.leaflet-container').forEach(function(el) {
+                el.classList.toggle('aj-dark-tiles', mode === 'dark');
+              });
+              if (ajActiveTileLayer && typeof ajActiveTileLayer.setUrl === 'function') {
+                ajActiveTileLayer.setUrl(url);
+              }
+            };
+
+            // 3. Hook navigator.geolocation to Native Real-Time Background LocationService
+            var watchers = {};
+            var nextWatchId = 100;
+            function toGeoPos(d) {
+              return {
+                coords: {
+                  latitude: d.lat,
+                  longitude: d.lng,
+                  accuracy: d.acc,
+                  altitude: d.alt,
+                  altitudeAccuracy: 5,
+                  heading: d.bearing,
+                  speed: d.spdMs
+                },
+                timestamp: Date.now()
+              };
+            }
+
+            if (window.AJNative && navigator.geolocation) {
+              navigator.geolocation.watchPosition = function(success, error, opts) {
+                var id = ++nextWatchId;
+                watchers[id] = success;
+                try { window.AJNative.startBgGps(false); } catch(e) {}
+                return id;
+              };
+              navigator.geolocation.clearWatch = function(id) {
+                delete watchers[id];
+                if (Object.keys(watchers).length === 0) {
+                  try { window.AJNative.stopBgGps(); } catch(e) {}
+                }
+              };
+              navigator.geolocation.getCurrentPosition = function(success, error, opts) {
+                var cached = '';
+                try { cached = window.AJNative.getBgGpsState(); } catch(e) {}
+                if (cached) {
+                  try { success(toGeoPos(JSON.parse(cached))); return; } catch(e) {}
+                }
+                var tempId = ++nextWatchId;
+                watchers[tempId] = function(pos) {
+                  delete watchers[tempId];
+                  success(pos);
+                };
+                try { window.AJNative.startBgGps(false); } catch(e) {}
+              };
+            }
+
+            function degToCompass(deg) {
+              var dirs = ['N','NE','E','SE','S','SW','W','NW'];
+              return dirs[Math.round(((deg % 360) / 45)) % 8] + ' ' + Math.round(deg) + '°';
+            }
+
+            // 4. Receive Real-Time Native GPS Packets & Update Pro HUD
+            window.__onAJNativeGps = function(d) {
+              var pos = toGeoPos(d);
+              Object.keys(watchers).forEach(function(k) {
+                try { watchers[k](pos); } catch(e) {}
+              });
+              var pill = document.getElementById('ajBgPill');
+              if (pill) {
+                pill.textContent = 'BG GPS LIVE • ±' + Math.round(d.acc) + 'm';
+                pill.classList.add('live');
+              }
+              var set = function(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; };
+              set('ajHudDist', (d.distM / 1000).toFixed(2) + ' km');
+              set('ajHudAvg', d.avgSpd.toFixed(1) + ' km/h');
+              set('ajHudElev', '+' + Math.round(d.elevGain) + ' m');
+              set('ajHudComp', degToCompass(d.bearing));
+              set('ajHudSteps', String(d.steps));
+              set('ajHudPts', String(d.pts));
+              set('ajHudCoords', d.lat.toFixed(5) + ', ' + d.lng.toFixed(5));
+            };
+
+            // 5. Inject Pro Telemetry HUD inside Track Section
+            function mountHud() {
+              if (document.getElementById('ajProGpsHud')) return;
+              var anchor = document.querySelector('.leaflet-container') || document.querySelector('canvas');
+              var parent = anchor ? anchor.parentElement : null;
+              if (!parent) return;
+
+              var hud = document.createElement('div');
+              hud.id = 'ajProGpsHud';
+              hud.innerHTML =
+                '<div class="aj-hud-row">' +
+                  '<span style="font-size:11px;font-weight:700;color:#00e5ff;">⚡ REAL-TIME NATIVE GPS PRO</span>' +
+                  '<span id="ajBgPill" class="aj-bg-pill">BG GPS STANDBY</span>' +
+                '</div>' +
+                '<div class="aj-hud-row" style="margin-top:7px;">' +
+                  '<button class="aj-layer-btn active" data-mode="dark" onclick="window.__ajSetMapMode(\'dark\')">CYBER DARK</button>' +
+                  '<button class="aj-layer-btn" data-mode="sat" onclick="window.__ajSetMapMode(\'sat\')">SATELLITE</button>' +
+                  '<button class="aj-layer-btn" data-mode="street" onclick="window.__ajSetMapMode(\'street\')">STREET</button>' +
+                  '<button class="aj-layer-btn" data-mode="topo" onclick="window.__ajSetMapMode(\'topo\')">TOPO</button>' +
+                '</div>' +
+                '<div class="aj-hud-grid">' +
+                  '<div class="aj-hud-box"><div class="aj-hud-lbl">BG DIST</div><div id="ajHudDist" class="aj-hud-val">0.00 km</div></div>' +
+                  '<div class="aj-hud-box"><div class="aj-hud-lbl">AVG SPD</div><div id="ajHudAvg" class="aj-hud-val">0.0 km/h</div></div>' +
+                  '<div class="aj-hud-box"><div class="aj-hud-lbl">CLIMB</div><div id="ajHudElev" class="aj-hud-val">+0 m</div></div>' +
+                  '<div class="aj-hud-box"><div class="aj-hud-lbl">COMPASS</div><div id="ajHudComp" class="aj-hud-val">N 0°</div></div>' +
+                  '<div class="aj-hud-box"><div class="aj-hud-lbl">EST STEPS</div><div id="ajHudSteps" class="aj-hud-val">0</div></div>' +
+                  '<div class="aj-hud-box"><div class="aj-hud-lbl">GPS PTS</div><div id="ajHudPts" class="aj-hud-val">0</div></div>' +
+                '</div>' +
+                '<div class="aj-hud-row" style="margin-top:7px;font-size:10px;color:#8ad8f0;">' +
+                  '<span>LAT/LNG: <b id="ajHudCoords">Waiting for lock...</b></span>' +
+                  '<button onclick="if(window.AJNative){if(window.AJNative.isBgGpsRunning()){window.AJNative.stopBgGps();document.getElementById(\'ajBgPill\').textContent=\'BG GPS STOPPED\';document.getElementById(\'ajBgPill\').classList.remove(\'live\');}else{window.AJNative.startBgGps(true);}}" style="padding:3px 8px;border-radius:6px;border:1px solid #00e5ff;background:#00334d;color:#00f0ff;font-size:10px;font-weight:700;">BG ON/OFF</button>' +
+                '</div>';
+
+              parent.parentElement.insertBefore(hud, parent.nextSibling);
+              if (window.AJNative && window.AJNative.isBgGpsRunning()) {
+                var st = window.AJNative.getBgGpsState();
+                if (st) { try { window.__onAJNativeGps(JSON.parse(st)); } catch(e) {} }
+              }
+            }
+            setInterval(mountHud, 1200);
           })();
           </script>
           EOF
