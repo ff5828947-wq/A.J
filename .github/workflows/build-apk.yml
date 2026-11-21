@@ -1,4 +1,4 @@
-name: Build ARISE Ultra Kotlin APK
+name: Build ARISE Android 12-16 APK
 
 on:
   push:
@@ -21,9 +21,15 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.7'
+          gradle-version: '8.11.1'
 
-      - name: Generate Native ARISE Ultra Project
+      - name: Accept Android SDK Licenses
+        run: |
+          if [ -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          fi
+
+      - name: Generate Native ARISE Project (Android 12 - 16)
         run: |
           mkdir -p app/src/main/java/com/aj/system app/src/main/assets app/src/main/res/values
 
@@ -53,8 +59,8 @@ jobs:
 
           cat << 'EOF' > build.gradle.kts
           plugins {
-              id("com.android.application") version "8.5.2" apply false
-              id("org.jetbrains.kotlin.android") version "1.9.24" apply false
+              id("com.android.application") version "8.9.1" apply false
+              id("org.jetbrains.kotlin.android") version "2.0.21" apply false
           }
           EOF
 
@@ -65,13 +71,13 @@ jobs:
           }
           android {
               namespace = "com.aj.system"
-              compileSdk = 35
+              compileSdk = 36
               defaultConfig {
                   applicationId = "com.aj.system"
-                  minSdk = 24
-                  targetSdk = 35
-                  versionCode = 8
-                  versionName = "4.0"
+                  minSdk = 31
+                  targetSdk = 36
+                  versionCode = 9
+                  versionName = "4.1"
               }
               buildTypes {
                   release { isMinifyEnabled = false }
@@ -83,7 +89,7 @@ jobs:
               kotlinOptions { jvmTarget = "17" }
           }
           dependencies {
-              implementation("androidx.core:core-ktx:1.13.1")
+              implementation("androidx.core:core-ktx:1.15.0")
               implementation("androidx.appcompat:appcompat:1.7.0")
               implementation("androidx.biometric:biometric:1.1.0")
               implementation("com.google.android.material:material:1.12.0")
@@ -172,7 +178,6 @@ jobs:
           import android.content.Intent
           import android.media.AudioAttributes
           import android.media.RingtoneManager
-          import android.os.Build
 
           class AlarmReceiver : BroadcastReceiver() {
               override fun onReceive(context: Context, intent: Intent) {
@@ -182,18 +187,16 @@ jobs:
                   val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
                       ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
 
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      val attrs = AudioAttributes.Builder()
-                          .setUsage(AudioAttributes.USAGE_ALARM)
-                          .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                          .build()
-                      val ch = NotificationChannel(chId, "ARISE Alarms", NotificationManager.IMPORTANCE_HIGH).apply {
-                          enableVibration(true)
-                          vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 500)
-                          setSound(alarmUri, attrs)
-                      }
-                      nm.createNotificationChannel(ch)
+                  val attrs = AudioAttributes.Builder()
+                      .setUsage(AudioAttributes.USAGE_ALARM)
+                      .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                      .build()
+                  val ch = NotificationChannel(chId, "ARISE Alarms", NotificationManager.IMPORTANCE_HIGH).apply {
+                      enableVibration(true)
+                      vibrationPattern = longArrayOf(0, 400, 200, 400)
+                      setSound(alarmUri, attrs)
                   }
+                  nm.createNotificationChannel(ch)
 
                   val openIntent = Intent(context, MainActivity::class.java).apply {
                       flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -203,14 +206,7 @@ jobs:
                       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                   )
 
-                  val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      Notification.Builder(context, chId)
-                  } else {
-                      @Suppress("DEPRECATION")
-                      Notification.Builder(context)
-                  }
-
-                  val notif = builder
+                  val notif = Notification.Builder(context, chId)
                       .setContentTitle("ARISE SYSTEM ALARM")
                       .setContentText(label)
                       .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
@@ -240,7 +236,6 @@ jobs:
           import android.location.GnssStatus
           import android.location.Location
           import android.location.LocationManager
-          import android.os.Build
           import android.os.IBinder
           import android.os.Looper
           import com.google.android.gms.location.FusedLocationProviderClient
@@ -319,11 +314,7 @@ jobs:
                   createChannel()
                   val notif = buildNotif("Locking Google Fused GPS...")
                   try {
-                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                          startForeground(NOTIF_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
-                      } else {
-                          startForeground(NOTIF_ID, notif)
-                      }
+                      startForeground(NOTIF_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
                   } catch (e: Exception) {
                       onStatusUpdate?.invoke("ERR", "FG: ${e.message}")
                   }
@@ -339,8 +330,7 @@ jobs:
                   }
 
                   try {
-                      @Suppress("DEPRECATION")
-                      lm.registerGnssStatusCallback(gnssCb)
+                      lm.registerGnssStatusCallback(mainExecutor, gnssCb)
                   } catch (_: Exception) {}
 
                   fusedClient = LocationServices.getFusedLocationProviderClient(this)
@@ -415,11 +405,9 @@ jobs:
               }
 
               private fun createChannel() {
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                      val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                      val ch = NotificationChannel(CH_ID, "ARISE Real-Time GPS", NotificationManager.IMPORTANCE_LOW)
-                      nm.createNotificationChannel(ch)
-                  }
+                  val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                  val ch = NotificationChannel(CH_ID, "ARISE Real-Time GPS", NotificationManager.IMPORTANCE_LOW)
+                  nm.createNotificationChannel(ch)
               }
 
               private fun buildNotif(text: String): Notification {
@@ -427,9 +415,8 @@ jobs:
                       flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
                   }
                   val pi = PendingIntent.getActivity(this, 1, openIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-                  val b = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Notification.Builder(this, CH_ID)
-                  else @Suppress("DEPRECATION") Notification.Builder(this)
-                  return b.setContentTitle("ARISE PRO GPS ACTIVE")
+                  return Notification.Builder(this, CH_ID)
+                      .setContentTitle("ARISE PRO GPS ACTIVE")
                       .setContentText(text)
                       .setSmallIcon(android.R.drawable.ic_menu_mylocation)
                       .setContentIntent(pi)
@@ -464,14 +451,11 @@ jobs:
           import android.content.Intent
           import android.content.SharedPreferences
           import android.content.pm.PackageManager
-          import android.graphics.BitmapFactory
           import android.graphics.Color
-          import android.graphics.Typeface
           import android.hardware.Sensor
           import android.hardware.SensorEvent
           import android.hardware.SensorEventListener
           import android.hardware.SensorManager
-          import android.media.AudioAttributes
           import android.net.Uri
           import android.os.Build
           import android.os.Bundle
@@ -479,8 +463,6 @@ jobs:
           import android.os.Vibrator
           import android.os.VibratorManager
           import android.provider.Settings
-          import android.view.Gravity
-          import android.view.HapticFeedbackConstants
           import android.view.View
           import android.view.WindowManager
           import android.webkit.GeolocationPermissions
@@ -494,9 +476,6 @@ jobs:
           import android.webkit.WebView
           import android.webkit.WebViewClient
           import android.widget.FrameLayout
-          import android.widget.ImageView
-          import android.widget.LinearLayout
-          import android.widget.TextView
           import android.widget.Toast
           import androidx.biometric.BiometricManager
           import androidx.biometric.BiometricPrompt
@@ -518,7 +497,6 @@ jobs:
               }
 
               private lateinit var web: WebView
-              private lateinit var nativeSplash: LinearLayout
               private lateinit var prefs: SharedPreferences
               private lateinit var sensorManager: SensorManager
               private var stepDetector: Sensor? = null
@@ -533,7 +511,9 @@ jobs:
                   super.onCreate(savedInstanceState)
                   window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                   try {
+                      @Suppress("DEPRECATION")
                       window.statusBarColor = Color.parseColor("#030812")
+                      @Suppress("DEPRECATION")
                       window.navigationBarColor = Color.parseColor("#030812")
                   } catch (_: Exception) {}
 
@@ -548,8 +528,8 @@ jobs:
 
                   web = WebView(this).apply {
                       setBackgroundColor(Color.parseColor("#030812"))
-                      setLayerType(View.LAYER_TYPE_HARDWARE, null)
-                      isHapticFeedbackEnabled = true
+                      isVerticalScrollBarEnabled = true
+                      overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
                   }
                   root.addView(
                       web,
@@ -558,44 +538,6 @@ jobs:
                           FrameLayout.LayoutParams.MATCH_PARENT
                       )
                   )
-
-                  // Zero-Black-Screen Native Splash Overlay using real ARISE logo
-                  nativeSplash = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      gravity = Gravity.CENTER
-                      setBackgroundColor(Color.parseColor("#030812"))
-                      val img = ImageView(this@MainActivity).apply {
-                          val dp = resources.displayMetrics.density
-                          val sz = (128 * dp).toInt()
-                          layoutParams = LinearLayout.LayoutParams(sz, sz)
-                          scaleType = ImageView.ScaleType.FIT_CENTER
-                          try {
-                              val bmp = BitmapFactory.decodeStream(assets.open("arise_logo.png"))
-                              setImageBitmap(bmp)
-                          } catch (_: Exception) {
-                              setImageResource(android.R.drawable.ic_menu_compass)
-                          }
-                      }
-                      val title = TextView(this@MainActivity).apply {
-                          text = "ARISE"
-                          setTextColor(Color.parseColor("#00F0FF"))
-                          textSize = 28f
-                          typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-                          letterSpacing = 0.35f
-                          gravity = Gravity.CENTER
-                          setPadding(0, (18 * resources.displayMetrics.density).toInt(), 0, 0)
-                      }
-                      addView(img)
-                      addView(title)
-                  }
-                  root.addView(
-                      nativeSplash,
-                      FrameLayout.LayoutParams(
-                          FrameLayout.LayoutParams.MATCH_PARENT,
-                          FrameLayout.LayoutParams.MATCH_PARENT
-                      )
-                  )
-
                   setContentView(root)
 
                   ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
@@ -617,15 +559,6 @@ jobs:
 
                   web.addJavascriptInterface(AJBridge(this), "AJNative")
                   web.webViewClient = object : WebViewClient() {
-                      override fun onPageFinished(view: WebView?, url: String?) {
-                          super.onPageFinished(view, url)
-                          nativeSplash.animate()
-                              .alpha(0f)
-                              .setDuration(280L)
-                              .withEndAction { nativeSplash.visibility = View.GONE }
-                              .start()
-                      }
-
                       override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                           val urlStr = request?.url?.toString() ?: return null
                           if (urlStr.contains("carto", ignoreCase = true) ||
@@ -648,7 +581,7 @@ jobs:
                                       val conn = (URL(targetUrl).openConnection() as HttpURLConnection).apply {
                                           connectTimeout = 8000
                                           readTimeout = 8000
-                                          setRequestProperty("User-Agent", "ARISESystemApp/4.0 (Android)")
+                                          setRequestProperty("User-Agent", "ARISESystemApp/4.1 (Android)")
                                       }
                                       if (conn.responseCode == 200) {
                                           val mime = conn.contentType?.substringBefore(";") ?: "image/png"
@@ -703,52 +636,28 @@ jobs:
 
               private fun getVibrator(): Vibrator? {
                   return try {
-                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                          val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-                          vm.defaultVibrator
-                      } else {
-                          @Suppress("DEPRECATION")
-                          getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-                      }
+                      val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                      vm.defaultVibrator
                   } catch (_: Exception) { null }
               }
 
-              fun triggerHaptic(style: String = "click") {
-                  if (!prefs.getBoolean("haptics_on", true)) return
-                  runOnUiThread {
-                      try {
-                          val flag = HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
-                          when (style) {
-                              "tick" -> web.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK, flag)
-                              "heavy" -> web.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, flag)
-                              else -> web.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY, flag)
-                          }
-                      } catch (_: Exception) {}
-                  }
+              // Hardware-tuned Flagship Soft/Crisp Taptic Haptics (Android 12-16)
+              fun triggerHaptic(style: String = "tap") {
+                  val mode = prefs.getString("haptic_mode", "soft") ?: "soft"
+                  if (mode == "off") return
                   try {
                       val v = getVibrator() ?: return
                       if (!v.hasVibrator()) return
-                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                          val effect = when (style) {
-                              "tick" -> VibrationEffect.createOneShot(18L, 180)
-                              "heavy" -> VibrationEffect.createOneShot(45L, 255)
-                              "success" -> VibrationEffect.createWaveform(longArrayOf(0, 28, 55, 42), intArrayOf(0, 220, 0, 255), -1)
-                              else -> VibrationEffect.createOneShot(26L, 230)
-                          }
-                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                              v.vibrate(effect)
+                      val effect = when (style) {
+                          "success" -> VibrationEffect.createPredefined(VibrationEffect.EFFECT_DOUBLE_CLICK)
+                          "heavy" -> VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK)
+                          else -> if (mode == "crisp") {
+                              VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK)
                           } else {
-                              val attrs = AudioAttributes.Builder()
-                                  .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                                  .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-                                  .build()
-                              @Suppress("DEPRECATION")
-                              v.vibrate(effect, attrs)
+                              VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK)
                           }
-                      } else {
-                          @Suppress("DEPRECATION")
-                          v.vibrate(if (style == "heavy") 45L else 26L)
                       }
+                      v.vibrate(effect)
                   } catch (_: Exception) {}
               }
 
@@ -773,9 +682,7 @@ jobs:
 
               private fun registerStepListener() {
                   val sensor = stepDetector ?: return
-                  val hasAct = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                      checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED
-                  } else true
+                  val hasAct = checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED
                   if (hasAct) {
                       try {
                           sensorManager.unregisterListener(this, sensor)
@@ -870,8 +777,7 @@ jobs:
 
                   if (LocationService.isRunning) {
                       val i = Intent(this, LocationService::class.java).apply { putExtra("reset", false) }
-                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i)
-                      else startService(i)
+                      startForegroundService(i)
                   }
                   if (LocationService.latestJson.isNotEmpty()) {
                       web.evaluateJavascript("window.__onAJNativeGps && window.__onAJNativeGps(${LocationService.latestJson});", null)
@@ -895,11 +801,9 @@ jobs:
                   val perms = mutableListOf(
                       Manifest.permission.CAMERA,
                       Manifest.permission.ACCESS_FINE_LOCATION,
-                      Manifest.permission.ACCESS_COARSE_LOCATION
+                      Manifest.permission.ACCESS_COARSE_LOCATION,
+                      Manifest.permission.ACTIVITY_RECOGNITION
                   )
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                      perms.add(Manifest.permission.ACTIVITY_RECOGNITION)
-                  }
                   if (Build.VERSION.SDK_INT >= 33) {
                       perms.add(Manifest.permission.POST_NOTIFICATIONS)
                   }
@@ -943,7 +847,19 @@ jobs:
               class AJBridge(private val act: MainActivity) {
                   @JavascriptInterface fun setMapMode(mode: String) { currentMapMode = mode; act.clearWebCache() }
                   @JavascriptInterface fun haptic(style: String) { act.triggerHaptic(style) }
-                  @JavascriptInterface fun vibrate(ms: Int) { act.triggerHaptic(if (ms >= 35) "heavy" else "click") }
+                  @JavascriptInterface fun getHapticMode(): String = act.prefs.getString("haptic_mode", "soft") ?: "soft"
+                  @JavascriptInterface fun cycleHapticMode(): String {
+                      val cur = getHapticMode()
+                      val next = when (cur) {
+                          "soft" -> "crisp"
+                          "crisp" -> "off"
+                          else -> "soft"
+                      }
+                      act.prefs.edit().putString("haptic_mode", next).apply()
+                      if (next != "off") act.triggerHaptic("tap")
+                      return next
+                  }
+
                   @JavascriptInterface fun getSteps(): Int = act.todaySteps
                   @JavascriptInterface fun hasHardwareSteps(): Boolean = act.hasHardwareSteps
                   @JavascriptInterface fun resetSteps() { act.resetHardwareSteps(); act.triggerHaptic("heavy") }
@@ -952,41 +868,23 @@ jobs:
                   @JavascriptInterface fun setBioLockEnabled(on: Boolean) {
                       act.prefs.edit().putBoolean("bio_lock_on", on).apply()
                       if (on) act.isUnlockedThisSession = true
-                      act.triggerHaptic("click")
+                      act.triggerHaptic("tap")
                   }
                   @JavascriptInterface fun triggerBiometric(reason: String) { act.triggerBiometricUnlock(reason) }
-
-                  @JavascriptInterface fun isHapticsEnabled(): Boolean = act.prefs.getBoolean("haptics_on", true)
-                  @JavascriptInterface fun setHapticsEnabled(on: Boolean) {
-                      act.prefs.edit().putBoolean("haptics_on", on).apply()
-                      if (on) act.triggerHaptic("success")
-                  }
 
                   @JavascriptInterface fun isIntroEnabled(): Boolean = act.prefs.getBoolean("intro_on", true)
                   @JavascriptInterface fun setIntroEnabled(on: Boolean) {
                       act.prefs.edit().putBoolean("intro_on", on).apply()
-                      act.triggerHaptic("click")
+                      act.triggerHaptic("tap")
                   }
 
                   @JavascriptInterface fun hasBackgroundLocation(): Boolean {
-                      return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                          act.checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
-                      } else {
-                          act.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                      }
+                      return act.checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
                   }
 
                   @JavascriptInterface fun requestBackgroundLocation() {
-                      act.triggerHaptic("click")
-                      act.runOnUiThread {
-                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                              act.openAppPermissionSettings()
-                          } else if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
-                              act.requestPermissions(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION), 102)
-                          } else {
-                              act.requestAppPerms()
-                          }
-                      }
+                      act.triggerHaptic("tap")
+                      act.runOnUiThread { act.openAppPermissionSettings() }
                   }
 
                   @JavascriptInterface fun openLocationSettings() {
@@ -1005,15 +903,14 @@ jobs:
                           return
                       }
                       val i = Intent(act, LocationService::class.java).apply { putExtra("reset", reset) }
-                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) act.startForegroundService(i)
-                      else act.startService(i)
+                      act.startForegroundService(i)
                       act.triggerHaptic("success")
                   }
 
                   @JavascriptInterface fun stopBgGps() {
                       act.stopService(Intent(act, LocationService::class.java))
                       LocationService.onStatusUpdate?.invoke("STOPPED", "BG GPS STOPPED")
-                      act.triggerHaptic("heavy")
+                      act.triggerHaptic("tap")
                   }
 
                   @JavascriptInterface fun getBgGpsState(): String = LocationService.latestJson
@@ -1030,7 +927,7 @@ jobs:
                           if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR, 1)
                       }
                       try {
-                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !am.canScheduleExactAlarms()) {
+                          if (!am.canScheduleExactAlarms()) {
                               am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
                           } else {
                               am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
@@ -1049,11 +946,8 @@ jobs:
                   @JavascriptInterface fun showNotif(title: String, msg: String) {
                       val nm = act.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                       val chId = "arise_alerts_v1"
-                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                          nm.createNotificationChannel(NotificationChannel(chId, "ARISE Alerts", NotificationManager.IMPORTANCE_HIGH))
-                      }
-                      val b = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Notification.Builder(act, chId)
-                      else @Suppress("DEPRECATION") Notification.Builder(act)
+                      nm.createNotificationChannel(NotificationChannel(chId, "ARISE Alerts", NotificationManager.IMPORTANCE_HIGH))
+                      val b = Notification.Builder(act, chId)
                       nm.notify(2002, b.setContentTitle(title).setContentText(msg).setSmallIcon(android.R.drawable.ic_dialog_info).build())
                   }
               }
@@ -1069,15 +963,16 @@ jobs:
           with open(path, "r", encoding="utf-8", errors="ignore") as f:
               html = f.read()
 
-          # Permanent build-time Play Store safe rebranding (zero flicker!)
+          # Permanent build-time Play Store safe rebranding
           replacements = [
-              (r'A\.J\.\s*SYSTEM\s*SHOP', 'ARISE SYSTEM SHOP'),
-              (r'A\.J\s*BGM\s*JUKEBOX', 'ARISE BGM JUKEBOX'),
-              (r'A\.J\s*PROTOCOL', 'ARISE PROTOCOL'),
-              (r'A\.J\s*LOG', 'ARISE LOG'),
+              (r'A\.J\.?\s*SYSTEM\s*SHOP', 'ARISE SYSTEM SHOP'),
+              (r'A\.J\.?\s*SHOP', 'ARISE SHOP'),
+              (r'A\.J\.?\s*BGM\s*JUKEBOX', 'ARISE BGM JUKEBOX'),
+              (r'A\.J\.?\s*PROTOCOL', 'ARISE PROTOCOL'),
+              (r'A\.J\.?\s*LOG', 'ARISE LOG'),
               (r'WELCOME,\s*HUNTER\s*A\.J\.?', 'WELCOME, HUNTER.'),
               (r'WELCOME\s*HUNTER\s*A\.J\.?', 'WELCOME HUNTER'),
-              (r'ENTER\s*A\.J', 'ENTER ARISE'),
+              (r'ENTER\s*A\.J\.?', 'ENTER ARISE'),
               (r'SHADOW\s*MONARCH', 'APEX SOVEREIGN'),
               (r"MONARCH'S\s*DOMAIN", "SOVEREIGN'S DOMAIN"),
               (r'MONARCH\s*EXAM', 'SOVEREIGN EXAM'),
@@ -1089,15 +984,15 @@ jobs:
               (r'\bIRON\b', 'AEGIS'),
               (r'\bTUSK\b', 'BERSERKER'),
               (r'\bBERU\b', 'PHANTOM'),
-              (r"name:\s*'A\.J'", "name: 'ARISE'"),
-              (r'name:\s*"A\.J"', 'name: "ARISE"'),
+              (r"name:\s*'A\.J\.?'", "name: 'ARISE'"),
+              (r'name:\s*"A\.J\.?"', 'name: "ARISE"'),
           ]
           for pat, rep in replacements:
               html = re.sub(pat, rep, html, flags=re.IGNORECASE)
 
           early_patch = """<script>
           (function(){
-            // 1. Auto-migrate saved 'A.J' hunter name in localStorage to 'ARISE' once
+            // 1. Auto-migrate saved 'A.J' hunter name in localStorage to 'ARISE'
             try {
               for (var i = 0; i < localStorage.length; i++) {
                 var k = localStorage.key(i);
@@ -1256,129 +1151,122 @@ jobs:
 
           cat << 'EOF' >> app/src/main/assets/index.html
           <style>
-            /* World-Class Cyber-Glassmorphism UI Overhaul */
+            /* Butter-Smooth Scroll + Clean Cyber UI (Zero GPU Blur Lag) */
             * { -webkit-tap-highlight-color: transparent; }
-            html, body {
-              scroll-behavior: smooth;
+            html {
+              background-color: #030812 !important;
+              overflow-y: auto !important;
+              height: auto !important;
+              min-height: 100% !important;
+            }
+            body {
               background-color: #030812 !important;
               font-variant-numeric: tabular-nums;
-              overscroll-behavior: none;
+              overflow-y: auto !important;
+              height: auto !important;
+              min-height: 100vh !important;
+              touch-action: pan-y !important;
+              -webkit-overflow-scrolling: touch !important;
             }
             button {
-              transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.22s ease, filter 0.2s ease !important;
-              will-change: transform;
+              transition: transform 0.12s ease, filter 0.16s ease !important;
             }
-            button:active { transform: scale(0.95) !important; filter: brightness(1.18); }
+            button:active { transform: scale(0.96) !important; filter: brightness(1.15); }
 
-            /* Elevated Glass Cards & Neon Depth */
-            .card, [class*="card"], [class*="panel"], [class*="box"] {
-              backdrop-filter: blur(10px);
-              -webkit-backdrop-filter: blur(10px);
-              box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(0, 240, 255, 0.18);
-            }
-
-            /* Ultra-Cinematic ARISE Boot Intro (Real Logo + Energy Shockwave) */
+            /* Clean Single-Layer Cinematic ARISE Boot Intro (No Double-Logo Glitch) */
             #ariseIntroOverlay {
               position: fixed; inset: 0; z-index: 999999;
               background: radial-gradient(circle at 50% 42%, #092644 0%, #030812 65%, #010308 100%);
               display: flex; flex-direction: column; align-items: center; justify-content: center;
               font-family: monospace, sans-serif; color: #e0f7ff; overflow: hidden;
-              transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+              transition: opacity 0.55s ease, transform 0.55s ease;
             }
-            #ariseIntroOverlay.hide { opacity: 0; transform: scale(1.12); pointer-events: none; }
+            #ariseIntroOverlay.hide { opacity: 0; transform: scale(1.06); pointer-events: none; }
             .arise-grid-bg {
-              position: absolute; inset: 0; opacity: 0.22;
-              background-image: linear-gradient(rgba(0,229,255,0.26) 1px, transparent 1px),
-                                linear-gradient(90deg, rgba(0,229,255,0.26) 1px, transparent 1px);
+              position: absolute; inset: 0; opacity: 0.2;
+              background-image: linear-gradient(rgba(0,229,255,0.24) 1px, transparent 1px),
+                                linear-gradient(90deg, rgba(0,229,255,0.24) 1px, transparent 1px);
               background-size: 32px 32px;
-              animation: ariseGridMove 4.5s linear infinite;
+              animation: ariseGridMove 5s linear infinite;
             }
             @keyframes ariseGridMove { from { transform: translateY(0); } to { transform: translateY(32px); } }
             .arise-scanline {
-              position: absolute; left: 0; right: 0; height: 3px; top: -10%;
+              position: absolute; left: 0; right: 0; height: 2px; top: -10%;
               background: linear-gradient(90deg, transparent, #00f7ff, transparent);
-              box-shadow: 0 0 22px #00f7ff;
-              animation: ariseScan 1.9s ease-in-out infinite;
+              box-shadow: 0 0 18px #00f7ff;
+              animation: ariseScan 1.8s ease-in-out infinite;
             }
-            @keyframes ariseScan { 0% { top: 5%; opacity: 0; } 50% { opacity: 0.9; } 100% { top: 95%; opacity: 0; } }
-            .arise-core-wrap { position: relative; width: 178px; height: 178px; display: flex; align-items: center; justify-content: center; }
+            @keyframes ariseScan { 0% { top: 8%; opacity: 0; } 50% { opacity: 0.85; } 100% { top: 92%; opacity: 0; } }
+            .arise-core-wrap { position: relative; width: 174px; height: 174px; display: flex; align-items: center; justify-content: center; }
             .arise-shockwave {
-              position: absolute; inset: -16px; border-radius: 50%;
-              border: 2px solid rgba(0, 247, 255, 0.6);
-              animation: ariseShock 1.8s cubic-bezier(0.1, 0.8, 0.2, 1) infinite;
+              position: absolute; inset: -14px; border-radius: 50%;
+              border: 2px solid rgba(0, 247, 255, 0.55);
+              animation: ariseShock 1.7s cubic-bezier(0.1, 0.8, 0.2, 1) infinite;
             }
-            @keyframes ariseShock { 0% { transform: scale(0.75); opacity: 0.9; } 100% { transform: scale(1.42); opacity: 0; } }
+            @keyframes ariseShock { 0% { transform: scale(0.78); opacity: 0.9; } 100% { transform: scale(1.38); opacity: 0; } }
             .arise-ring-1 {
               position: absolute; inset: 0; border-radius: 50%;
               border: 3px solid transparent; border-top-color: #00f7ff; border-right-color: #0099ff;
-              box-shadow: 0 0 28px rgba(0,240,255,0.65);
-              animation: ariseSpin 1.35s linear infinite;
+              box-shadow: 0 0 24px rgba(0,240,255,0.6);
+              animation: ariseSpin 1.4s linear infinite;
             }
             .arise-ring-2 {
               position: absolute; inset: 12px; border-radius: 50%;
-              border: 2px dashed rgba(0,229,255,0.75);
+              border: 2px dashed rgba(0,229,255,0.7);
               animation: ariseSpinRev 2.8s linear infinite;
             }
             .arise-logo-box {
-              width: 118px; height: 118px; border-radius: 26px; overflow: hidden;
+              width: 116px; height: 116px; border-radius: 26px; overflow: hidden;
               border: 2px solid #00f7ff; background: #031120;
-              box-shadow: 0 0 38px rgba(0,247,255,0.75), inset 0 0 18px rgba(0,247,255,0.35);
+              box-shadow: 0 0 34px rgba(0,247,255,0.7);
               animation: arisePulse 1.3s ease-in-out infinite;
-              display: flex; align-items: center; justify-content: center;
             }
-            .arise-logo-box img { width: 100%; height: 100%; object-fit: cover; }
+            .arise-logo-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
             @keyframes ariseSpin { to { transform: rotate(360deg); } }
             @keyframes ariseSpinRev { to { transform: rotate(-360deg); } }
-            @keyframes arisePulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
-            .arise-sys-tag {
-              margin-top: 24px; font-size: 11px; letter-spacing: 4px; color: #5ce1ff;
-              text-transform: uppercase; text-shadow: 0 0 10px rgba(0,240,255,0.6);
-            }
+            @keyframes arisePulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+            .arise-sys-tag { margin-top: 22px; font-size: 11px; letter-spacing: 4px; color: #5ce1ff; }
             .arise-title {
-              margin-top: 6px; font-size: 44px; font-weight: 900; letter-spacing: 10px;
+              margin-top: 6px; font-size: 42px; font-weight: 900; letter-spacing: 9px;
               background: linear-gradient(180deg, #ffffff 0%, #72f5ff 55%, #009dff 100%);
               -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-              filter: drop-shadow(0 0 20px rgba(0,229,255,0.75));
             }
             .arise-sub { margin-top: 4px; font-size: 11px; letter-spacing: 3px; color: #8ad8f0; }
             .arise-bar-wrap {
-              margin-top: 24px; width: 226px; height: 6px; border-radius: 99px;
+              margin-top: 22px; width: 220px; height: 6px; border-radius: 99px;
               background: rgba(0,229,255,0.16); overflow: hidden; border: 1px solid rgba(0,229,255,0.4);
             }
             .arise-bar-fill {
               height: 100%; width: 0%; background: linear-gradient(90deg, #0077ff, #00f7ff, #ffffff);
-              box-shadow: 0 0 14px #00f7ff; transition: width 0.28s ease;
+              box-shadow: 0 0 12px #00f7ff; transition: width 0.28s ease;
             }
-            .arise-boot-txt { margin-top: 10px; font-size: 10px; color: #7cd4f0; letter-spacing: 1.6px; }
+            .arise-boot-txt { margin-top: 10px; font-size: 10px; color: #7cd4f0; letter-spacing: 1.5px; }
 
             /* Biometric Security Lock Screen */
             #ariseLockOverlay {
               position: fixed; inset: 0; z-index: 999998;
               background: radial-gradient(circle at 50% 35%, #071e36 0%, #02060f 75%);
-              backdrop-filter: blur(20px);
               display: none; flex-direction: column; align-items: center; justify-content: center;
               font-family: monospace, sans-serif; color: #e0f7ff; text-align: center; padding: 24px;
             }
             #ariseLockOverlay.open { display: flex; }
             .arise-lock-logo {
               width: 96px; height: 96px; border-radius: 24px; overflow: hidden;
-              border: 2px solid #00f7ff; box-shadow: 0 0 32px rgba(0,247,255,0.55);
-              margin-bottom: 18px;
+              border: 2px solid #00f7ff; box-shadow: 0 0 30px rgba(0,247,255,0.55); margin-bottom: 18px;
             }
             .arise-lock-logo img { width: 100%; height: 100%; object-fit: cover; }
             .arise-lock-btn {
               margin-top: 22px; padding: 14px 28px; border-radius: 14px;
               border: 1px solid #00f7ff; background: linear-gradient(135deg, #004e75, #00a2d6);
               color: #ffffff; font-weight: 900; font-size: 13px; letter-spacing: 1.8px;
-              box-shadow: 0 0 22px rgba(0,229,255,0.5);
             }
 
-            /* Integrated Pro Settings Card (Inside Settings Tab — Zero Overlap!) */
+            /* Integrated Pro Settings Card */
             #ariseInlineProCard {
               margin: 12px 0 14px 0; padding: 14px; border-radius: 14px;
-              background: linear-gradient(155deg, rgba(6,22,40,0.96), rgba(9,32,56,0.92));
+              background: linear-gradient(155deg, rgba(6,22,40,0.96), rgba(9,32,56,0.94));
               border: 1px solid rgba(0,240,255,0.55);
-              box-shadow: 0 8px 26px rgba(0,0,0,0.5), 0 0 18px rgba(0,229,255,0.2);
+              box-shadow: 0 6px 20px rgba(0,0,0,0.45);
               font-family: monospace, sans-serif; color: #e0f7ff;
             }
             .arise-pro-row {
@@ -1390,13 +1278,13 @@ jobs:
               padding: 7px 12px; border-radius: 8px; font-size: 11px; font-weight: 800;
               border: 1px solid #00e5ff; background: #00344f; color: #00f7ff;
             }
-            .arise-pro-btn.on { background: #00e676; color: #021a0d; border-color: #00e676; box-shadow: 0 0 12px rgba(0,230,118,0.45); }
+            .arise-pro-btn.on { background: #00e676; color: #021a0d; border-color: #00e676; }
 
             /* Pro GPS HUD */
             #ajProGpsHud {
               margin: 10px 0; padding: 12px; border-radius: 14px;
               background: linear-gradient(145deg, rgba(6,18,32,0.96), rgba(10,28,48,0.94));
-              border: 1px solid rgba(0,229,255,0.5); box-shadow: 0 8px 24px rgba(0,0,0,0.45), 0 0 16px rgba(0,229,255,0.2);
+              border: 1px solid rgba(0,229,255,0.5);
               font-family: monospace, sans-serif; color: #e0f7ff;
             }
             .aj-hud-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -1411,7 +1299,7 @@ jobs:
               flex: 1; padding: 6px 4px; font-size: 10px; font-weight: 800; border-radius: 7px;
               border: 1px solid rgba(0,229,255,0.38); background: rgba(0,20,38,0.88); color: #9be7ff;
             }
-            .aj-layer-btn.active { background: #00f0ff; color: #03131f; box-shadow: 0 0 12px rgba(0,240,255,0.65); }
+            .aj-layer-btn.active { background: #00f0ff; color: #03131f; }
             .aj-bg-pill {
               font-size: 10px; padding: 3px 9px; border-radius: 99px; font-weight: 800;
               background: rgba(255,196,0,0.18); color: #ffd54f; border: 1px solid rgba(255,196,0,0.5);
@@ -1421,15 +1309,13 @@ jobs:
           </style>
           <script>
           (function(){
-            // 1. Instant 0ms Tactile Haptic Engine on EVERY Button, Tab, Input & Slider
-            document.addEventListener('pointerdown', function(e) {
+            // 1. Clean Tactile Haptic ONLY on real button click (never fires while scrolling!)
+            document.addEventListener('click', function(e) {
               if (!window.AJNative || !window.AJNative.haptic) return;
               var t = e.target;
               if (!t || !t.closest) return;
               if (t.closest('button, a, [role="button"], .tab, .nav-btn')) {
-                window.AJNative.haptic('click');
-              } else if (t.closest('input[type="range"], input[type="checkbox"], select')) {
-                window.AJNative.haptic('tick');
+                window.AJNative.haptic('tap');
               }
             }, true);
 
@@ -1445,10 +1331,11 @@ jobs:
 
             // 3. Real-Time Safety-Net Brand Cleaner
             var brandMap = [
-              [/A\.J\.\s*SYSTEM\s*SHOP/gi, 'ARISE SYSTEM SHOP'],
-              [/A\.J\s*BGM\s*JUKEBOX/gi, 'ARISE BGM JUKEBOX'],
-              [/A\.J\s*PROTOCOL/gi, 'ARISE PROTOCOL'],
-              [/A\.J\s*LOG/gi, 'ARISE LOG'],
+              [/A\.J\.?\s*SYSTEM\s*SHOP/gi, 'ARISE SYSTEM SHOP'],
+              [/A\.J\.?\s*SHOP/gi, 'ARISE SHOP'],
+              [/A\.J\.?\s*BGM\s*JUKEBOX/gi, 'ARISE BGM JUKEBOX'],
+              [/A\.J\.?\s*PROTOCOL/gi, 'ARISE PROTOCOL'],
+              [/A\.J\.?\s*LOG/gi, 'ARISE LOG'],
               [/WELCOME,\s*HUNTER\s*A\.J\.?/gi, 'WELCOME, HUNTER.'],
               [/SHADOW\s*MONARCH/gi, 'APEX SOVEREIGN'],
               [/MONARCH'S\s*DOMAIN/gi, "SOVEREIGN'S DOMAIN"],
@@ -1466,7 +1353,7 @@ jobs:
                 var orig = n.nodeValue;
                 if (!orig || !orig.trim()) continue;
                 var upd = orig;
-                if (upd.trim() === 'A.J') upd = upd.replace('A.J', 'ARISE');
+                if (upd.trim() === 'A.J' || upd.trim() === 'A.J.') upd = 'ARISE';
                 for (var i = 0; i < brandMap.length; i++) {
                   upd = upd.replace(brandMap[i][0], brandMap[i][1]);
                 }
@@ -1474,7 +1361,7 @@ jobs:
               }
             }
 
-            // 4. Ultra-Cinematic ARISE Boot Intro (With Real ARISE Logo + Haptic Pulse)
+            // 4. Clean Single Cinematic ARISE Boot Intro
             function playAriseIntro(force) {
               var allow = force || !(window.AJNative && window.AJNative.isIntroEnabled && !window.AJNative.isIntroEnabled());
               if (!allow) { dismissOldWelcome(); return; }
@@ -1489,7 +1376,7 @@ jobs:
                   '<div class="arise-shockwave"></div>' +
                   '<div class="arise-ring-1"></div>' +
                   '<div class="arise-ring-2"></div>' +
-                  '<div class="arise-logo-box"><img src="arise_logo.png" alt="ARISE" onerror="this.style.display=\'none\'" /></div>' +
+                  '<div class="arise-logo-box"><img src="arise_logo.png" alt="ARISE" /></div>' +
                 '</div>' +
                 '<div class="arise-sys-tag">[ SYSTEM AWAKENING ]</div>' +
                 '<div class="arise-title">ARISE</div>' +
@@ -1497,10 +1384,9 @@ jobs:
                 '<div class="arise-bar-wrap"><div id="ariseBarFill" class="arise-bar-fill"></div></div>' +
                 '<div id="ariseBootTxt" class="arise-boot-txt">INITIALIZING BIOMETRIC &amp; SENSOR CORE...</div>';
               document.body.appendChild(ov);
-              if (window.AJNative && window.AJNative.haptic) window.AJNative.haptic('tick');
               var steps = [
                 [35, 'CALIBRATING GOOGLE FUSED GPS...'],
-                [72, 'ENGAGING HARDWARE STEP &amp; HAPTIC ENGINE...'],
+                [72, 'ENGAGING HARDWARE STEP ENGINE...'],
                 [100, 'SYSTEM AWAKENED — ARISE!']
               ];
               steps.forEach(function(st, idx) {
@@ -1510,20 +1396,20 @@ jobs:
                   if (b) b.style.width = st[0] + '%';
                   if (t) t.innerHTML = st[1];
                   if (idx === 1) { dismissOldWelcome(); applyPlayStoreBranding(); }
-                  if (idx === 2 && window.AJNative && window.AJNative.haptic) window.AJNative.haptic('success');
-                }, 420 * (idx + 1));
+                  if (idx === 2 && window.AJNative && window.AJNative.haptic) window.AJNative.haptic('tap');
+                }, 400 * (idx + 1));
               });
               setTimeout(function() {
                 dismissOldWelcome();
                 ov.classList.add('hide');
-                setTimeout(function(){ ov.remove(); }, 650);
-              }, 2050);
+                setTimeout(function(){ ov.remove(); }, 600);
+              }, 1900);
             }
             window.__arisePlayIntro = playAriseIntro;
             if (document.body) playAriseIntro(false);
             else document.addEventListener('DOMContentLoaded', function(){ playAriseIntro(false); });
 
-            // 5. Biometric Lock Screen Overlay (With Real ARISE Logo)
+            // 5. Biometric Lock Screen Overlay
             function ensureLockScreen() {
               if (document.getElementById('ariseLockOverlay')) return;
               var lk = document.createElement('div');
@@ -1556,7 +1442,7 @@ jobs:
               if (window.AJNative && window.AJNative.isBioLockEnabled && window.AJNative.isBioLockEnabled()) {
                 window.__ajShowLockScreen();
               }
-            }, 2200);
+            }, 2050);
 
             // 6. Hide ONLY DEV TEST BAR & DEV MODE Button
             function hideDevTestBar() {
@@ -1573,7 +1459,7 @@ jobs:
               });
             }
 
-            // 7. Sync Real Hardware Steps into QUEST tab + TRACK HUD + Settings Card
+            // 7. Sync Real Hardware Steps
             var latestHwSteps = 0;
             window.__onAJNativeStep = function(cnt) {
               latestHwSteps = cnt || 0;
@@ -1625,11 +1511,11 @@ jobs:
               };
             }
 
-            // 10. Cleanly Embed ARISE PRO SECURITY & ENGINE Card inside Settings Tab (Zero Floating Overlap!)
+            // 10. Integrated ARISE PRO SECURITY & ENGINE Card inside Settings Tab
             function refreshProCard() {
               if (!window.AJNative) return;
               var bioOn = window.AJNative.isBioLockEnabled();
-              var hapOn = window.AJNative.isHapticsEnabled();
+              var hapMode = window.AJNative.getHapticMode ? window.AJNative.getHapticMode() : 'soft';
               var intOn = window.AJNative.isIntroEnabled();
               var bgLoc = window.AJNative.hasBackgroundLocation();
               var hwStp = window.AJNative.hasHardwareSteps();
@@ -1640,8 +1526,12 @@ jobs:
                 b.classList.toggle('on', on);
               };
               setBtn('ariseBioBtn', bioOn, 'ON', 'OFF');
-              setBtn('ariseHapBtn', hapOn, 'ON', 'OFF');
               setBtn('ariseIntBtn', intOn, 'ON', 'OFF');
+              var hapBtn = document.getElementById('ariseHapBtn');
+              if (hapBtn) {
+                hapBtn.textContent = hapMode.toUpperCase();
+                hapBtn.classList.toggle('on', hapMode !== 'off');
+              }
               var locEl = document.getElementById('ariseBgLocBtn');
               if (locEl) {
                 locEl.textContent = bgLoc ? 'ALL TIME ✓' : 'ALLOW ALL TIME';
@@ -1667,7 +1557,7 @@ jobs:
               pro.innerHTML =
                 '<div style="display:flex;justify-content:space-between;align-items:center;">' +
                   '<span style="font-size:13px;font-weight:900;color:#00f7ff;letter-spacing:1.4px;">⚡ ARISE PRO SECURITY &amp; ENGINE</span>' +
-                  '<span style="font-size:10px;color:#00e676;font-weight:800;">v4.0 ULTRA</span>' +
+                  '<span style="font-size:10px;color:#00e676;font-weight:800;">ANDROID 12–16</span>' +
                 '</div>' +
                 '<div class="arise-pro-row">' +
                   '<div><div style="font-size:12px;font-weight:700;">🔒 Fingerprint / Face / PIN Lock</div><div style="font-size:10px;color:#7ec8e3;">Biometric security on app open</div></div>' +
@@ -1682,11 +1572,8 @@ jobs:
                   '<button class="arise-pro-btn" onclick="window.AJNative && window.AJNative.resetSteps();setTimeout(window.__ariseRefreshPro,200);">RESET</button>' +
                 '</div>' +
                 '<div class="arise-pro-row">' +
-                  '<div><div style="font-size:12px;font-weight:700;">📳 Tactile Haptic Feedback</div><div style="font-size:10px;color:#7ec8e3;">Flagship vibration on every tap</div></div>' +
-                  '<div style="display:flex;gap:5px;">' +
-                    '<button class="arise-pro-btn" onclick="window.AJNative && window.AJNative.haptic(\'success\')">TEST</button>' +
-                    '<button id="ariseHapBtn" class="arise-pro-btn on" onclick="if(window.AJNative){window.AJNative.setHapticsEnabled(!window.AJNative.isHapticsEnabled());window.__ariseRefreshPro();}">ON</button>' +
-                  '</div>' +
+                  '<div><div style="font-size:12px;font-weight:700;">📳 Taptic Haptic Feel</div><div style="font-size:10px;color:#7ec8e3;">Tap to switch SOFT / CRISP / OFF</div></div>' +
+                  '<button id="ariseHapBtn" class="arise-pro-btn on" onclick="if(window.AJNative){window.AJNative.cycleHapticMode();window.__ariseRefreshPro();}">SOFT</button>' +
                 '</div>' +
                 '<div class="arise-pro-row">' +
                   '<div><div style="font-size:12px;font-weight:700;">✨ Cinematic Awakening Intro</div><div style="font-size:10px;color:#7ec8e3;">Real logo holographic boot sequence</div></div>' +
@@ -1820,8 +1707,8 @@ jobs:
       - name: Build Debug APK
         run: gradle assembleDebug
 
-      - name: Upload ARISE Ultra APK
+      - name: Upload ARISE Android 12-16 APK
         uses: actions/upload-artifact@v4
         with:
-          name: ARISE-Ultra-Kotlin-APK
+          name: ARISE-Android12-16-APK
           path: app/build/outputs/apk/debug/app-debug.apk
