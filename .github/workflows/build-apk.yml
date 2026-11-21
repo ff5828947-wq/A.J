@@ -25,7 +25,7 @@ jobs:
 
       - name: Generate Native ARISE Pro Project
         run: |
-          mkdir -p app/src/main/java/com/aj/system app/src/main/assets
+          mkdir -p app/src/main/java/com/aj/system app/src/main/assets app/src/main/res/values
 
           cat << 'EOF' > gradle.properties
           org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
@@ -70,8 +70,8 @@ jobs:
                   applicationId = "com.aj.system"
                   minSdk = 24
                   targetSdk = 35
-                  versionCode = 6
-                  versionName = "3.0"
+                  versionCode = 7
+                  versionName = "3.1"
               }
               buildTypes {
                   release { isMinifyEnabled = false }
@@ -88,6 +88,18 @@ jobs:
               implementation("com.google.android.material:material:1.12.0")
               implementation("com.google.android.gms:play-services-location:21.3.0")
           }
+          EOF
+
+          cat << 'EOF' > app/src/main/res/values/styles.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="Theme.ARISE" parent="Theme.AppCompat.NoActionBar">
+                  <item name="android:windowBackground">@android:color/black</item>
+                  <item name="android:colorBackground">#030812</item>
+                  <item name="android:statusBarColor">#030812</item>
+                  <item name="android:navigationBarColor">#030812</item>
+              </style>
+          </resources>
           EOF
 
           cat << 'EOF' > app/src/main/AndroidManifest.xml
@@ -111,7 +123,7 @@ jobs:
               <application
                   android:allowBackup="true"
                   android:label="ARISE: Daily Workout Exercise"
-                  android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
+                  android:theme="@style/Theme.ARISE"
                   android:usesCleartextTraffic="true">
                   <activity
                       android:name=".MainActivity"
@@ -469,9 +481,12 @@ jobs:
           import android.webkit.WebSettings
           import android.webkit.WebView
           import android.webkit.WebViewClient
+          import android.widget.FrameLayout
           import androidx.biometric.BiometricManager
           import androidx.biometric.BiometricPrompt
           import androidx.core.content.ContextCompat
+          import androidx.core.view.ViewCompat
+          import androidx.core.view.WindowInsetsCompat
           import androidx.fragment.app.FragmentActivity
           import java.net.HttpURLConnection
           import java.net.URL
@@ -510,9 +525,26 @@ jobs:
                   setupStepSensor()
                   requestAppPerms()
 
+                  // Safe container that respects Android 15 Edge-to-Edge Status Bar & Nav Bar insets
+                  val root = FrameLayout(this).apply {
+                      setBackgroundColor(Color.parseColor("#030812"))
+                  }
                   web = WebView(this)
                   web.setBackgroundColor(Color.parseColor("#030812"))
-                  setContentView(web)
+                  root.addView(
+                      web,
+                      FrameLayout.LayoutParams(
+                          FrameLayout.LayoutParams.MATCH_PARENT,
+                          FrameLayout.LayoutParams.MATCH_PARENT
+                      )
+                  )
+                  setContentView(root)
+
+                  ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+                      val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                      v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+                      insets
+                  }
 
                   web.settings.apply {
                       javaScriptEnabled = true
@@ -549,7 +581,7 @@ jobs:
                                       val conn = (URL(targetUrl).openConnection() as HttpURLConnection).apply {
                                           connectTimeout = 8000
                                           readTimeout = 8000
-                                          setRequestProperty("User-Agent", "ARISESystemApp/3.0 (Android)")
+                                          setRequestProperty("User-Agent", "ARISESystemApp/3.1 (Android)")
                                       }
                                       if (conn.responseCode == 200) {
                                           val mime = conn.contentType?.substringBefore(";") ?: "image/png"
@@ -1081,9 +1113,9 @@ jobs:
               background: radial-gradient(circle at 50% 42%, #071f38 0%, #030812 68%, #010308 100%);
               display: flex; flex-direction: column; align-items: center; justify-content: center;
               font-family: monospace, sans-serif; color: #e0f7ff; overflow: hidden;
-              transition: opacity 0.65s ease, transform 0.65s ease;
+              transition: opacity 0.55s ease, transform 0.55s ease;
             }
-            #ariseIntroOverlay.hide { opacity: 0; transform: scale(1.08); pointer-events: none; }
+            #ariseIntroOverlay.hide { opacity: 0; transform: scale(1.06); pointer-events: none; }
             .arise-grid-bg {
               position: absolute; inset: 0; opacity: 0.18;
               background-image: linear-gradient(rgba(0,229,255,0.22) 1px, transparent 1px),
@@ -1221,10 +1253,57 @@ jobs:
           </style>
           <script>
           (function(){
-            // 1. Cinematic ARISE Boot Intro
+            // 1. Auto-dismiss old A.J Welcome Modal so user only sees ONE clean ARISE intro
+            function dismissOldWelcome() {
+              document.querySelectorAll('button').forEach(function(b) {
+                var t = (b.textContent || '').toUpperCase();
+                if (t.indexOf('ACCEPT') !== -1 && (t.indexOf('ENTER A.J') !== -1 || t.indexOf('ENTER ARISE') !== -1)) {
+                  try { b.click(); } catch(e) {}
+                }
+              });
+            }
+
+            // 2. Play Store Safe Rebranding (Visible Text Nodes Only)
+            var brandMap = [
+              [/A\.J\.\s*SYSTEM\s*SHOP/gi, 'ARISE SYSTEM SHOP'],
+              [/A\.J\s*BGM\s*JUKEBOX/gi, 'ARISE BGM JUKEBOX'],
+              [/A\.J\s*LOG/gi, 'ARISE LOG'],
+              [/ENTER\s*A\.J/gi, 'ENTER ARISE'],
+              [/WELCOME\s*HUNTER\s*A\.J/gi, 'WELCOME HUNTER'],
+              [/SHADOW\s*MONARCH/gi, 'APEX SOVEREIGN'],
+              [/MONARCH'S\s*DOMAIN/gi, "SOVEREIGN'S DOMAIN"],
+              [/MONARCH\s*EXAM/gi, 'SOVEREIGN EXAM'],
+              [/SHADOW\s*ARMY/gi, 'ELITE SQUAD'],
+              [/SHADOW\s*RUNNER/gi, 'APEX RUNNER'],
+              [/SHADOW\s*ANT\s*KING/gi, 'APEX PHANTOM'],
+              [/\bIGRIS\b/g, 'VANGUARD'],
+              [/\bTANK\b/g, 'TITAN'],
+              [/\bIRON\b/g, 'AEGIS'],
+              [/\bTUSK\b/g, 'BERSERKER'],
+              [/\bBERU\b/g, 'PHANTOM']
+            ];
+            function applyPlayStoreBranding() {
+              if (!document.body) return;
+              var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+              var n;
+              while ((n = w.nextNode())) {
+                var p = n.parentElement;
+                if (!p || p.tagName === 'SCRIPT' || p.tagName === 'STYLE') continue;
+                var orig = n.nodeValue;
+                if (!orig || !orig.trim()) continue;
+                var upd = orig;
+                if (upd.trim() === 'A.J') upd = upd.replace('A.J', 'ARISE');
+                for (var i = 0; i < brandMap.length; i++) {
+                  upd = upd.replace(brandMap[i][0], brandMap[i][1]);
+                }
+                if (upd !== orig) n.nodeValue = upd;
+              }
+            }
+
+            // 3. Cinematic ARISE Boot Intro
             function playAriseIntro(force) {
               var allow = force || !(window.AJNative && window.AJNative.isIntroEnabled && !window.AJNative.isIntroEnabled());
-              if (!allow) return;
+              if (!allow) { dismissOldWelcome(); return; }
               var old = document.getElementById('ariseIntroOverlay');
               if (old) old.remove();
               var ov = document.createElement('div');
@@ -1243,8 +1322,8 @@ jobs:
                 '<div id="ariseBootTxt" class="arise-boot-txt">INITIALIZING HARDWARE SENSORS...</div>';
               document.body.appendChild(ov);
               var steps = [
-                [30, 'SYNCING GOOGLE FUSED GPS...'],
-                [65, 'CALIBRATING HARDWARE STEP ENGINE...'],
+                [35, 'SYNCING GOOGLE FUSED GPS...'],
+                [70, 'CALIBRATING HARDWARE STEP ENGINE...'],
                 [100, 'SYSTEM READY — ARISE!']
               ];
               steps.forEach(function(st, idx) {
@@ -1253,19 +1332,21 @@ jobs:
                   var t = document.getElementById('ariseBootTxt');
                   if (b) b.style.width = st[0] + '%';
                   if (t) t.textContent = st[1];
+                  if (idx === 1) { dismissOldWelcome(); applyPlayStoreBranding(); }
                   if (idx === 2 && window.AJNative && window.AJNative.vibrate) window.AJNative.vibrate(25);
-                }, 420 * (idx + 1));
+                }, 380 * (idx + 1));
               });
               setTimeout(function() {
+                dismissOldWelcome();
                 ov.classList.add('hide');
-                setTimeout(function(){ ov.remove(); }, 700);
-              }, 2150);
+                setTimeout(function(){ ov.remove(); }, 600);
+              }, 1900);
             }
             window.__arisePlayIntro = playAriseIntro;
             if (document.body) playAriseIntro(false);
             else document.addEventListener('DOMContentLoaded', function(){ playAriseIntro(false); });
 
-            // 2. Biometric Lock Screen Overlay
+            // 4. Biometric Lock Screen Overlay
             function ensureLockScreen() {
               if (document.getElementById('ariseLockOverlay')) return;
               var lk = document.createElement('div');
@@ -1298,24 +1379,26 @@ jobs:
               if (window.AJNative && window.AJNative.isBioLockEnabled && window.AJNative.isBioLockEnabled()) {
                 window.__ajShowLockScreen();
               }
-            }, 2250);
+            }, 2050);
 
-            // 3. Permanently Hide DEV TEST BAR (+500M, SIMULATE NEXT DAY, etc.) for Play Store
+            // 5. SAFELY Hide ONLY DEV TEST BAR & DEV MODE Button (NEVER hides QUEST tab!)
             function hideDevTestBar() {
-              var all = document.querySelectorAll('div, section');
-              for (var i = 0; i < all.length; i++) {
-                var el = all[i];
-                if (el.id === 'ariseProModal' || el.id === 'ajProGpsHud') continue;
+              document.querySelectorAll('div, section').forEach(function(el) {
+                if (el.id === 'ariseProModal' || el.id === 'ajProGpsHud') return;
                 var txt = (el.textContent || '').toUpperCase();
-                if (txt.indexOf('DEV TEST BAR') !== -1 && txt.indexOf('SIMULATE NEXT DAY') !== -1 && el.children.length < 15) {
-                  if (el.offsetHeight < 420) {
-                    el.style.display = 'none';
-                  }
+                if (txt.indexOf('DEV TEST BAR') !== -1 && txt.indexOf('STRENGTH TRAINING') === -1 && txt.length < 320) {
+                  el.style.display = 'none';
                 }
-              }
+              });
+              document.querySelectorAll('button').forEach(function(b) {
+                var t = (b.textContent || '').toUpperCase();
+                if (t.indexOf('DEV MODE') !== -1) {
+                  b.style.display = 'none';
+                }
+              });
             }
 
-            // 4. Sync Real Hardware Steps into QUEST tab + TRACK HUD
+            // 6. Sync Real Hardware Steps into QUEST tab + TRACK HUD
             var latestHwSteps = 0;
             window.__onAJNativeStep = function(cnt) {
               latestHwSteps = cnt || 0;
@@ -1323,7 +1406,6 @@ jobs:
               if (hudSteps) hudSteps.textContent = String(latestHwSteps);
               var proSteps = document.getElementById('ariseProStepsVal');
               if (proSteps) proSteps.textContent = latestHwSteps + ' steps';
-              // Replace jittery web step text ("• XX steps") in QUEST card with accurate hardware steps
               document.querySelectorAll('div, span, p, small').forEach(function(el) {
                 if (el.children.length === 0 && el.textContent && /•\s*\d+\s*steps/i.test(el.textContent)) {
                   el.textContent = el.textContent.replace(/•\s*\d+\s*steps/i, '• ' + latestHwSteps + ' steps');
@@ -1334,7 +1416,7 @@ jobs:
               setTimeout(function(){ window.__onAJNativeStep(window.AJNative.getSteps()); }, 800);
             }
 
-            // 5. Haptic Feedback + Auto-Sync Reset & GPS Buttons
+            // 7. Haptic Feedback + Auto-Sync Reset & GPS Buttons
             document.addEventListener('click', function(e) {
               var btn = e.target && e.target.closest ? e.target.closest('button') : null;
               if (!btn || !window.AJNative) return;
@@ -1350,7 +1432,7 @@ jobs:
               }
             }, true);
 
-            // 6. Native Alarm Bridge
+            // 8. Native Alarm Bridge
             if (window.AJNative && window.saveToggleAlarm) {
               var origAlm = window.saveToggleAlarm;
               window.saveToggleAlarm = function () {
@@ -1369,7 +1451,7 @@ jobs:
               };
             }
 
-            // 7. Pro Control Center (Settings, Fingerprint Lock, Allow All The Time GPS, Step Engine)
+            // 9. Pro Control Center
             function refreshProModal() {
               if (!window.AJNative) return;
               var bioOn = window.AJNative.isBioLockEnabled();
@@ -1438,7 +1520,7 @@ jobs:
                     '</div>' +
                   '</div>' +
                   '<div style="margin-top:12px;padding:8px;border-radius:8px;background:rgba(0,229,255,0.08);font-size:10px;color:#8ad8f0;line-height:1.45;">' +
-                    '<b>ARISE: Daily Workout Exercise v3.0 PRO</b><br/>' +
+                    '<b>ARISE: Daily Workout Exercise v3.1 PRO</b><br/>' +
                     'All workout, GPS, and step data stays 100% locally on your device. No personal data is sold or shared.' +
                   '</div>' +
                 '</div>';
@@ -1446,7 +1528,7 @@ jobs:
               window.__ariseRefreshPro = refreshProModal;
             }
 
-            // 8. Map Mode Switcher & Pro GPS HUD
+            // 10. Map Mode Switcher & Pro GPS HUD
             window.__ajSetMapMode = function(mode) {
               document.querySelectorAll('.aj-layer-btn').forEach(function(b) {
                 b.classList.toggle('active', b.getAttribute('data-mode') === mode);
@@ -1508,6 +1590,7 @@ jobs:
 
             function mountHud() {
               hideDevTestBar();
+              applyPlayStoreBranding();
               mountProCenter();
               if (latestHwSteps > 0) window.__onAJNativeStep(latestHwSteps);
               if (document.getElementById('ajProGpsHud')) return;
