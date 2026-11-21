@@ -1,4 +1,4 @@
-name: Build ARISE v5.1 Studio Pro APK
+name: Build ARISE v5.2 Studio VIP APK
 
 on:
   push:
@@ -29,7 +29,7 @@ jobs:
             yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
           fi
 
-      - name: Generate Native ARISE v5.1 Studio Pro Project (Android 12 - 16)
+      - name: Generate Native ARISE v5.2 Studio VIP Project (Android 12 - 16)
         run: |
           mkdir -p app/src/main/java/com/aj/system app/src/main/assets app/src/main/res/values
 
@@ -76,8 +76,8 @@ jobs:
                   applicationId = "com.aj.system"
                   minSdk = 31
                   targetSdk = 36
-                  versionCode = 11
-                  versionName = "5.1"
+                  versionCode = 12
+                  versionName = "5.2"
               }
               buildTypes {
                   release { isMinifyEnabled = false }
@@ -665,7 +665,7 @@ jobs:
                                       val conn = (URL(targetUrl).openConnection() as HttpURLConnection).apply {
                                           connectTimeout = 8000
                                           readTimeout = 8000
-                                          setRequestProperty("User-Agent", "ARISESystemApp/5.1 (Android)")
+                                          setRequestProperty("User-Agent", "ARISESystemApp/5.2 (Android)")
                                       }
                                       if (conn.responseCode == 200) {
                                           val mime = conn.contentType?.substringBefore(";") ?: "image/png"
@@ -851,9 +851,7 @@ jobs:
 
               // --- Native Android Text-to-Speech AI Voice Coach with Auto-Ducking ---
               private fun setupTts() {
-                  try {
-                      tts = TextToSpeech(this, this)
-                  } catch (_: Exception) {}
+                  try { tts = TextToSpeech(this, this) } catch (_: Exception) {}
               }
 
               override fun onInit(status: Int) {
@@ -879,9 +877,7 @@ jobs:
 
               fun speakCoach(text: String) {
                   if (!ttsReady) return
-                  try {
-                      tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "arise_coach")
-                  } catch (_: Exception) {}
+                  try { tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "arise_coach") } catch (_: Exception) {}
               }
 
               fun shareWorkoutReport(summary: String) {
@@ -1128,6 +1124,11 @@ jobs:
                       act.prefs.edit().putString("vip_theme", theme).apply()
                       act.triggerHaptic("tap")
                   }
+                  @JavascriptInterface fun isBassBoostOn(): Boolean = act.prefs.getBoolean("vip_bass_on", false)
+                  @JavascriptInterface fun setBassBoostOn(on: Boolean) {
+                      act.prefs.edit().putBoolean("vip_bass_on", on).apply()
+                      act.triggerHaptic("tap")
+                  }
                   @JavascriptInterface fun isVoiceCoachOn(): Boolean = act.prefs.getBoolean("vip_voice_on", true)
                   @JavascriptInterface fun setVoiceCoachOn(on: Boolean) {
                       act.prefs.edit().putBoolean("vip_voice_on", on).apply()
@@ -1315,7 +1316,8 @@ jobs:
               window.Image = WrappedImage;
             }
 
-            // Studio Master Limiter + Headroom + Auto-Ducking (Zero BGM/SFX Clipping!)
+            // ZERO-CRACKLE STUDIO AUDIO ENGINE:
+            // Uses playback buffer (prevents tap underrun crackle) + Anti-Click Lowpass + Bass Boost + Master Limiter
             var ctxList = [];
             var resumeCtxs = [];
             var resumeMedia = [];
@@ -1323,21 +1325,41 @@ jobs:
             if (OrigAC && window.AudioNode) {
               var origConnect = AudioNode.prototype.connect;
               var WrappedAC = function(opts) {
-                var c = opts ? new OrigAC(opts) : new OrigAC();
+                var merged = Object.assign({ latencyHint: 'playback' }, opts || {});
+                var c;
+                try { c = new OrigAC(merged); } catch(e) { c = new OrigAC(); }
                 ctxList.push(c);
                 try {
                   var masterGain = c.createGain();
-                  masterGain.gain.value = 0.72;
+                  masterGain.gain.value = 0.64;
+
+                  var bass = c.createBiquadFilter();
+                  bass.type = 'lowshelf';
+                  bass.frequency.value = 115;
+                  var bassOn = window.AJNative && window.AJNative.isVip && window.AJNative.isVip() &&
+                               window.AJNative.isBassBoostOn && window.AJNative.isBassBoostOn();
+                  bass.gain.value = bassOn ? 4.5 : 0;
+
+                  var antiClick = c.createBiquadFilter();
+                  antiClick.type = 'lowpass';
+                  antiClick.frequency.value = 6800;
+                  antiClick.Q.value = 0.7;
+
                   var comp = c.createDynamicsCompressor();
-                  comp.threshold.value = -10;
-                  comp.knee.value = 18;
+                  comp.threshold.value = -12;
+                  comp.knee.value = 20;
                   comp.ratio.value = 12;
-                  comp.attack.value = 0.003;
-                  comp.release.value = 0.16;
-                  origConnect.call(masterGain, comp);
+                  comp.attack.value = 0.004;
+                  comp.release.value = 0.18;
+
+                  origConnect.call(masterGain, bass);
+                  origConnect.call(bass, antiClick);
+                  origConnect.call(antiClick, comp);
                   origConnect.call(comp, c.destination);
+
                   c.__ajMasterIn = masterGain;
-                  c.__ajMasterComp = comp;
+                  c.__ajBass = bass;
+                  c.__ajChainNodes = [masterGain, bass, antiClick, comp];
                 } catch(e) {}
                 return c;
               };
@@ -1348,8 +1370,7 @@ jobs:
               AudioNode.prototype.connect = function(dest) {
                 if (dest && this.context && dest === this.context.destination &&
                     this.context.__ajMasterIn &&
-                    this !== this.context.__ajMasterIn &&
-                    this !== this.context.__ajMasterComp) {
+                    (!this.context.__ajChainNodes || this.context.__ajChainNodes.indexOf(this) === -1)) {
                   var args = Array.prototype.slice.call(arguments);
                   args[0] = this.context.__ajMasterIn;
                   return origConnect.apply(this, args);
@@ -1358,8 +1379,18 @@ jobs:
               };
             }
 
+            window.__ajSetBassBoost = function(on) {
+              ctxList.forEach(function(c) {
+                try {
+                  if (c && c.__ajBass) {
+                    c.__ajBass.gain.setTargetAtTime(on ? 4.5 : 0, c.currentTime, 0.06);
+                  }
+                } catch(e) {}
+              });
+            };
+
             window.__ajDuckAudio = function(duck) {
-              var target = duck ? 0.22 : 0.72;
+              var target = duck ? 0.18 : 0.64;
               ctxList.forEach(function(c) {
                 try {
                   if (c && c.__ajMasterIn) {
@@ -1465,21 +1496,27 @@ jobs:
           cat << 'EOF' >> app/src/main/assets/index.html
           <style>
             * { -webkit-tap-highlight-color: transparent; }
-            html { background-color: #030812 !important; overflow-y: auto !important; height: auto !important; min-height: 100% !important; }
+            html {
+              background-color: #030812 !important;
+              overflow-y: auto !important; height: auto !important; min-height: 100% !important;
+            }
             body {
               background-color: #030812 !important; font-variant-numeric: tabular-nums;
               overflow-y: auto !important; height: auto !important; min-height: 100vh !important;
               touch-action: pan-y !important; -webkit-overflow-scrolling: touch !important;
             }
-            button { transition: transform 0.12s ease, filter 0.16s ease !important; }
-            button:active { transform: scale(0.96) !important; filter: brightness(1.15); }
+            /* ZERO-FLASH BUTTON ACTIVE STATE (No filter override!) */
+            button { transition: transform 0.11s ease, opacity 0.11s ease !important; }
+            button:active { transform: scale(0.97) !important; opacity: 0.88 !important; }
 
-            /* Exclusive VIP Live Color Filter Themes */
-            body.vip-theme-gold { filter: hue-rotate(192deg) saturate(1.25) brightness(1.04); }
-            body.vip-theme-crimson { filter: hue-rotate(155deg) saturate(1.35) contrast(1.04); }
-            body.vip-theme-emerald { filter: hue-rotate(-52deg) saturate(1.2); }
+            /* ZERO-FLASH ROOT-LEVEL VIP LUXURY THEMES (Never flashes Cyan on tap!) */
+            html.vip-theme-gold { filter: hue-rotate(192deg) saturate(1.25) brightness(1.04); }
+            html.vip-theme-crimson { filter: hue-rotate(155deg) saturate(1.35) contrast(1.04); }
+            html.vip-theme-emerald { filter: hue-rotate(-52deg) saturate(1.2); }
+            html.vip-theme-amethyst { filter: hue-rotate(82deg) saturate(1.25); }
+            html.vip-theme-frost { filter: saturate(0.28) brightness(1.12) contrast(1.06); }
 
-            /* Sticky Live GPS Mini-Bar (Appears Only When GPS Running) */
+            /* Sticky Live GPS Mini-Bar */
             #ariseLiveGpsStrip {
               position: sticky; top: 0; z-index: 99980; display: none;
               padding: 6px 12px; font-family: monospace, sans-serif; font-size: 11px; font-weight: 800;
@@ -1488,6 +1525,14 @@ jobs:
               justify-content: space-between; align-items: center;
             }
             #ariseLiveGpsStrip.active { display: flex; }
+
+            /* VIP Crown Pill in Header */
+            .arise-vip-crown {
+              display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 99px;
+              font-size: 9px; font-weight: 900; letter-spacing: 1px; vertical-align: middle;
+              background: linear-gradient(135deg, #ffb300, #ffe082); color: #1a1100;
+              box-shadow: 0 0 10px rgba(255, 213, 79, 0.6);
+            }
 
             /* Ultra-Pro Zero-Black-Screen Awakening Intro */
             #ariseIntroOverlay {
@@ -1581,23 +1626,24 @@ jobs:
             }
             #ariseVipModal {
               position: fixed; inset: 0; z-index: 999995;
-              background: rgba(2, 5, 12, 0.88);
-              display: none; align-items: center; justify-content: center; padding: 16px;
+              background: rgba(2, 5, 12, 0.9);
+              display: none; align-items: center; justify-content: center; padding: 14px;
               font-family: monospace, sans-serif; color: #fff8e1;
             }
             #ariseVipModal.open { display: flex; }
             .arise-vip-sheet {
-              width: 100%; max-width: 390px; max-height: 88vh; overflow-y: auto;
-              border-radius: 18px; padding: 18px;
+              width: 100%; max-width: 392px; max-height: 89vh; overflow-y: auto;
+              border-radius: 18px; padding: 17px;
               background: linear-gradient(165deg, #181104 0%, #090d16 58%, #140f04 100%);
               border: 1.5px solid #ffd54f; box-shadow: 0 0 36px rgba(255, 193, 7, 0.3);
             }
             .vip-perk {
-              display: flex; align-items: flex-start; gap: 10px; padding: 9px 10px; margin-top: 8px;
+              display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; margin-top: 7px;
               border-radius: 10px; background: rgba(255, 213, 79, 0.08); border: 1px solid rgba(255, 213, 79, 0.24);
             }
+            .vip-theme-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
             .vip-theme-pill {
-              flex: 1; padding: 7px 4px; font-size: 10px; font-weight: 800; border-radius: 8px;
+              padding: 7px 4px; font-size: 10px; font-weight: 800; border-radius: 8px;
               border: 1px solid rgba(255,213,79,0.45); background: rgba(0,0,0,0.5); color: #ffe082;
             }
             .vip-theme-pill.active { background: #ffd54f; color: #1a1100; }
@@ -1649,6 +1695,8 @@ jobs:
           </style>
           <script>
           (function(){
+            var vipThemes = ['vip-theme-gold', 'vip-theme-crimson', 'vip-theme-emerald', 'vip-theme-amethyst', 'vip-theme-frost'];
+
             // 1. Live Sticky GPS Strip
             function ensureLiveGpsStrip() {
               if (document.getElementById('ariseLiveGpsStrip') || !document.body) return;
@@ -1658,7 +1706,7 @@ jobs:
               document.body.insertBefore(st, document.body.firstChild);
             }
 
-            // 2. Clean Tactile Haptic + Event-Based UI Sync (No 800ms CPU spikes!)
+            // 2. Clean Tactile Haptic + Event-Based UI Sync
             var syncTimer = 0;
             function scheduleUiSync() {
               clearTimeout(syncTimer);
@@ -1666,6 +1714,7 @@ jobs:
                 hideDevTestBar();
                 mountInlineProSettings();
                 mountGpsHud();
+                syncVipHeaderBadge();
               }, 160);
             }
 
@@ -1692,12 +1741,13 @@ jobs:
               }
             }, true);
 
-            // 3. Apply Saved VIP Theme on Launch
+            // 3. Apply Saved VIP Theme on ROOT <html> (Zero Cyan Flash on Tap!)
             function applyVipTheme(theme) {
-              document.body.classList.remove('vip-theme-gold', 'vip-theme-crimson', 'vip-theme-emerald');
-              if (theme === 'gold') document.body.classList.add('vip-theme-gold');
-              else if (theme === 'crimson') document.body.classList.add('vip-theme-crimson');
-              else if (theme === 'emerald') document.body.classList.add('vip-theme-emerald');
+              var root = document.documentElement;
+              vipThemes.forEach(function(cls) { root.classList.remove(cls); });
+              if (theme && theme !== 'cyan') {
+                root.classList.add('vip-theme-' + theme);
+              }
               document.querySelectorAll('.vip-theme-pill').forEach(function(b) {
                 b.classList.toggle('active', b.getAttribute('data-theme') === theme);
               });
@@ -1712,11 +1762,29 @@ jobs:
             };
             if (window.AJNative && window.AJNative.isVip && window.AJNative.isVip()) {
               var savedT = window.AJNative.getVipTheme ? window.AJNative.getVipTheme() : 'cyan';
-              if (document.body) applyVipTheme(savedT);
-              else document.addEventListener('DOMContentLoaded', function(){ applyVipTheme(savedT); });
+              applyVipTheme(savedT);
             }
 
-            // 4. Auto-dismiss old Welcome Modal & One-Time Brand Safety Net
+            // Show glowing VIP Crown badge in top header when VIP is active
+            function syncVipHeaderBadge() {
+              if (!window.AJNative || !window.AJNative.isVip || !window.AJNative.isVip()) return;
+              if (document.getElementById('ariseHeaderVipCrown')) return;
+              var nodes = document.querySelectorAll('h1, h2, div, span');
+              for (var i = 0; i < nodes.length; i++) {
+                var el = nodes[i];
+                if (el.children.length === 0 && (el.textContent || '').trim() === 'ARISE') {
+                  var b = document.createElement('span');
+                  b.id = 'ariseHeaderVipCrown';
+                  b.className = 'arise-vip-crown';
+                  b.textContent = '👑 VIP';
+                  b.onclick = function() { window.__ariseOpenVipModal(); };
+                  el.parentElement.appendChild(b);
+                  break;
+                }
+              }
+            }
+
+            // 4. Auto-dismiss old Welcome Modal & Brand Safety Net
             function dismissOldWelcome() {
               document.querySelectorAll('button').forEach(function(b) {
                 var t = (b.textContent || '').toUpperCase();
@@ -1880,7 +1948,19 @@ jobs:
               }
             }, 2150);
 
-            // 7. Sovereign VIP Modal (₹2/Month)
+            // 7. Sovereign VIP Modal (₹2/Month — 5 Luxury Themes + Bass Boost + Voice Coach + Share)
+            var coachLines = [
+              "System Awakened. Sovereign VIP Voice Coach is active. Let us crush today's workout!",
+              "Every single rep builds your legacy. Stay sharp, Hunter!",
+              "Sovereign Protocol engaged. Push past your limits and arise!"
+            ];
+            var coachIdx = 0;
+            window.__ariseTestVoice = function() {
+              if (!window.AJNative || !window.AJNative.speak) return;
+              window.AJNative.speak(coachLines[coachIdx % coachLines.length]);
+              coachIdx++;
+            };
+
             function ensureVipModal() {
               if (document.getElementById('ariseVipModal')) return;
               var m = document.createElement('div');
@@ -1895,25 +1975,28 @@ jobs:
                     '<div style="font-size:26px;font-weight:900;color:#ffd54f;">₹2 <span style="font-size:12px;color:#ffe082;">/ MONTH</span></div>' +
                     '<div id="ariseVipStatusSub" style="font-size:10px;color:#ffecb3;margin-top:2px;">ELITE UPGRADE • CANCEL ANYTIME VIA GOOGLE PLAY</div>' +
                   '</div>' +
-                  '<div class="vip-perk"><span>🗣️</span><div><b style="font-size:11px;color:#ffd54f;">Live AI Voice Coach</b><div style="font-size:10px;color:#e0d6b8;">Real-time voice callouts every 500m with BGM auto-ducking</div></div></div>' +
-                  '<div class="vip-perk"><span>🎨</span><div><b style="font-size:11px;color:#ffd54f;">3 Exclusive Luxury VIP Themes</b><div style="font-size:10px;color:#e0d6b8;">Unlock Royal Gold, Obsidian Crimson &amp; Emerald Matrix</div></div></div>' +
-                  '<div class="vip-perk"><span>⚡</span><div><b style="font-size:11px;color:#ffd54f;">500ms Turbo GPS + Report Share</b><div style="font-size:10px;color:#e0d6b8;">2× faster route precision &amp; 1-tap shareable stats card</div></div></div>' +
-                  '<div class="vip-perk"><span>👑</span><div><b style="font-size:11px;color:#ffd54f;">Sovereign Gold Intro &amp; Badge</b><div style="font-size:10px;color:#e0d6b8;">Exclusive golden awakening particles &amp; Elite status</div></div></div>' +
-                  '<div id="ariseVipThemeRow" style="margin-top:12px;">' +
-                    '<div style="font-size:10px;color:#ffe082;margin-bottom:6px;letter-spacing:1px;">SELECT VIP THEME:</div>' +
-                    '<div style="display:flex;gap:6px;">' +
+                  '<div class="vip-perk"><span>🗣️</span><div><b style="font-size:11px;color:#ffd54f;">Live AI Voice Coach + Auto-Ducking</b><div style="font-size:10px;color:#e0d6b8;">Real-time 500m GPS callouts &amp; motivational cues</div></div></div>' +
+                  '<div class="vip-perk"><span>🎨</span><div><b style="font-size:11px;color:#ffd54f;">5 Zero-Flash Luxury VIP Themes</b><div style="font-size:10px;color:#e0d6b8;">Gold, Crimson, Matrix, Amethyst Purple &amp; Arctic Platinum</div></div></div>' +
+                  '<div class="vip-perk"><span>🎧</span><div><b style="font-size:11px;color:#ffd54f;">Studio Bass Boost + 500ms Turbo GPS</b><div style="font-size:10px;color:#e0d6b8;">Deep punchy BGM audio, 2× GPS precision &amp; 1-tap Share</div></div></div>' +
+                  '<div class="vip-perk"><span>👑</span><div><b style="font-size:11px;color:#ffd54f;">Sovereign Crown Badge &amp; Gold Intro</b><div style="font-size:10px;color:#e0d6b8;">Header VIP crown + exclusive golden particle boot</div></div></div>' +
+                  '<div id="ariseVipThemeRow" style="margin-top:11px;">' +
+                    '<div style="font-size:10px;color:#ffe082;margin-bottom:6px;letter-spacing:1px;">SELECT LUXURY THEME:</div>' +
+                    '<div class="vip-theme-grid">' +
                       '<button class="vip-theme-pill active" data-theme="cyan" onclick="window.__ariseSetVipTheme(\'cyan\')">CYAN</button>' +
                       '<button class="vip-theme-pill" data-theme="gold" onclick="window.__ariseSetVipTheme(\'gold\')">👑 GOLD</button>' +
                       '<button class="vip-theme-pill" data-theme="crimson" onclick="window.__ariseSetVipTheme(\'crimson\')">🔥 RED</button>' +
                       '<button class="vip-theme-pill" data-theme="emerald" onclick="window.__ariseSetVipTheme(\'emerald\')">💚 MATRIX</button>' +
+                      '<button class="vip-theme-pill" data-theme="amethyst" onclick="window.__ariseSetVipTheme(\'amethyst\')">💜 PURPLE</button>' +
+                      '<button class="vip-theme-pill" data-theme="frost" onclick="window.__ariseSetVipTheme(\'frost\')">❄️ FROST</button>' +
                     '</div>' +
                   '</div>' +
                   '<div id="ariseVipControls" style="display:none;margin-top:10px;gap:6px;flex-wrap:wrap;">' +
                     '<button id="ariseVoiceBtn" class="arise-pro-btn on" style="flex:1;" onclick="if(window.AJNative){var n=!window.AJNative.isVoiceCoachOn();window.AJNative.setVoiceCoachOn(n);window.__ariseRefreshVipUI();}">🗣️ VOICE: ON</button>' +
-                    '<button class="arise-pro-btn" style="flex:1;" onclick="window.AJNative && window.AJNative.speak(\'System Awakened. Sovereign VIP Voice Coach is active. Let us crush today\\\'s workout!\')">🔊 TEST VOICE</button>' +
-                    '<button class="vip-gold-btn" style="width:100%;margin-top:4px;" onclick="window.__ariseShareStats()">📤 SHARE TODAY WORKOUT REPORT</button>' +
+                    '<button id="ariseBassBtn" class="arise-pro-btn" style="flex:1;" onclick="if(window.AJNative){var n=!window.AJNative.isBassBoostOn();window.AJNative.setBassBoostOn(n);window.__ajSetBassBoost && window.__ajSetBassBoost(n);window.__ariseRefreshVipUI();}">🎧 BASS: OFF</button>' +
+                    '<button class="arise-pro-btn" style="width:100%;" onclick="window.__ariseTestVoice()">🔊 PLAY AI VOICE COACH</button>' +
+                    '<button class="vip-gold-btn" style="width:100%;margin-top:2px;" onclick="window.__ariseShareStats()">📤 SHARE TODAY WORKOUT REPORT</button>' +
                   '</div>' +
-                  '<button id="ariseBuyVipBtn" class="vip-gold-btn" style="width:100%;margin-top:14px;padding:12px;font-size:13px;" onclick="window.AJNative && window.AJNative.buyVip()">👑 UNLOCK VIP — ₹2 / MONTH</button>' +
+                  '<button id="ariseBuyVipBtn" class="vip-gold-btn" style="width:100%;margin-top:13px;padding:12px;font-size:13px;" onclick="window.AJNative && window.AJNative.buyVip()">👑 UNLOCK VIP — ₹2 / MONTH</button>' +
                   '<button onclick="window.AJNative && window.AJNative.restoreVip()" style="width:100%;margin-top:8px;padding:8px;border-radius:8px;border:1px solid rgba(255,213,79,0.35);background:transparent;color:#ffe082;font-size:10px;font-weight:700;">RESTORE GOOGLE PLAY PURCHASE</button>' +
                 '</div>';
               document.body.appendChild(m);
@@ -1941,17 +2024,24 @@ jobs:
               var banBtn = document.getElementById('ariseVipBannerBtn');
               var banTxt = document.getElementById('ariseVipBannerTxt');
               var voiceBtn = document.getElementById('ariseVoiceBtn');
+              var bassBtn = document.getElementById('ariseBassBtn');
               if (buyBtn) buyBtn.style.display = isVip ? 'none' : 'block';
               if (ctrls) ctrls.style.display = isVip ? 'flex' : 'none';
               if (sub) sub.textContent = isVip ? '👑 SOVEREIGN VIP ACTIVE — ALL ELITE MODULES UNLOCKED' : 'ELITE UPGRADE • CANCEL ANYTIME VIA GOOGLE PLAY';
               if (banBtn) banBtn.textContent = isVip ? '👑 MANAGE VIP' : '₹2 / MONTH';
-              if (banTxt) banTxt.textContent = isVip ? 'SOVEREIGN VIP ACTIVE • Voice Coach & Themes Ready' : 'Unlock AI Voice Coach, Gold Themes & 500ms Turbo GPS';
+              if (banTxt) banTxt.textContent = isVip ? 'SOVEREIGN VIP ACTIVE • 5 Themes, Bass & Voice Ready' : 'Unlock AI Voice Coach, 5 Luxury Themes & Turbo GPS';
               if (voiceBtn && window.AJNative.isVoiceCoachOn) {
                 var vOn = window.AJNative.isVoiceCoachOn();
                 voiceBtn.textContent = vOn ? '🗣️ VOICE: ON' : '🗣️ VOICE: OFF';
                 voiceBtn.classList.toggle('on', vOn);
               }
+              if (bassBtn && window.AJNative.isBassBoostOn) {
+                var bOn = window.AJNative.isBassBoostOn();
+                bassBtn.textContent = bOn ? '🎧 BASS: ON' : '🎧 BASS: OFF';
+                bassBtn.classList.toggle('on', bOn);
+              }
               if (isVip && window.AJNative.getVipTheme) applyVipTheme(window.AJNative.getVipTheme());
+              syncVipHeaderBadge();
             };
 
             window.__ariseOpenVipModal = function() {
@@ -2062,7 +2152,7 @@ jobs:
               vipBan.innerHTML =
                 '<div>' +
                   '<div style="font-size:13px;font-weight:900;color:#ffd54f;letter-spacing:1px;">👑 ARISE SOVEREIGN VIP</div>' +
-                  '<div id="ariseVipBannerTxt" style="font-size:10px;color:#ffecb3;margin-top:2px;">Unlock AI Voice Coach, Gold Themes &amp; 500ms Turbo GPS</div>' +
+                  '<div id="ariseVipBannerTxt" style="font-size:10px;color:#ffecb3;margin-top:2px;">Unlock AI Voice Coach, 5 Luxury Themes &amp; Turbo GPS</div>' +
                 '</div>' +
                 '<button id="ariseVipBannerBtn" class="vip-gold-btn" onclick="window.__ariseOpenVipModal()">₹2 / MONTH</button>';
 
@@ -2071,7 +2161,7 @@ jobs:
               pro.innerHTML =
                 '<div style="display:flex;justify-content:space-between;align-items:center;">' +
                   '<span style="font-size:13px;font-weight:900;color:#00f7ff;letter-spacing:1.4px;">⚡ ARISE PRO SECURITY &amp; ENGINE</span>' +
-                  '<span style="font-size:10px;color:#00e676;font-weight:800;">v5.1 STUDIO</span>' +
+                  '<span style="font-size:10px;color:#00e676;font-weight:800;">v5.2 STUDIO</span>' +
                 '</div>' +
                 '<div class="arise-pro-row">' +
                   '<div><div style="font-size:12px;font-weight:700;">🔒 Fingerprint / Face / PIN Lock</div><div style="font-size:10px;color:#7ec8e3;">Biometric security on app open</div></div>' +
@@ -2223,7 +2313,6 @@ jobs:
               }
             }
 
-            // Initial clean mount (no 800ms loop!)
             setTimeout(scheduleUiSync, 500);
             setTimeout(scheduleUiSync, 2100);
           })();
@@ -2233,8 +2322,8 @@ jobs:
       - name: Build Debug APK
         run: gradle assembleDebug
 
-      - name: Upload ARISE v5.1 Studio Pro APK
+      - name: Upload ARISE v5.2 Studio VIP APK
         uses: actions/upload-artifact@v4
         with:
-          name: ARISE-v5.1-Studio-Pro-APK
+          name: ARISE-v5.2-Studio-VIP-APK
           path: app/build/outputs/apk/debug/app-debug.apk
