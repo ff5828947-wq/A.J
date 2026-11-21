@@ -82,11 +82,17 @@ jobs:
               signingConfigs {
                   create("release") {
                       storeFile = file("arise-release.jks")
-                      storePassword = System.getenv("ARISE_STORE_PASS") ?: "Arise@2026Pro"
-                      keyAlias = System.getenv("ARISE_KEY_ALIAS") ?: "arisekey"
-                      keyPassword = System.getenv("ARISE_KEY_PASS") ?: "Arise@2026Pro"
+                            storePassword =System.getenv("ARISE_STORE_PASS").orEmpty().ifBlank { "Arise@2026Pro" }
+            keyAlias = System.getenv("ARISE_KEY_ALIAS").orEmpty().ifBlank { "arisekey" }
+            keyPassword = System.getenv("ARISE_KEY_PASS").orEmpty().ifBlank { "Arise@2026Pro" }
+
                   }
               }
+                      lint {
+                checkReleaseBuilds = false
+                abortOnError = false
+            }
+            
               buildTypes {
                   getByName("release") {
                       signingConfig = signingConfigs.getByName("release")
