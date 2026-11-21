@@ -70,8 +70,8 @@ jobs:
                   applicationId = "com.aj.system"
                   minSdk = 24
                   targetSdk = 34
-                  versionCode = 4
-                  versionName = "2.2"
+                  versionCode = 5
+                  versionName = "2.3"
               }
               buildTypes {
                   release { isMinifyEnabled = false }
@@ -81,6 +81,9 @@ jobs:
                   targetCompatibility = JavaVersion.VERSION_17
               }
               kotlinOptions { jvmTarget = "17" }
+          }
+          dependencies {
+              implementation("com.google.android.gms:play-services-location:21.3.0")
           }
           EOF
 
@@ -101,7 +104,7 @@ jobs:
 
               <application
                   android:allowBackup="true"
-                  android:label="A.J"
+                  android:label="ARISE:Daily Workout Exercise"
                   android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
                   android:usesCleartextTraffic="true">
                   <activity
@@ -131,7 +134,7 @@ jobs:
             else
               cp "$LOGO_FILE" app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
             fi
-            sed -i 's/android:label="A.J"/android:label="A.J" android:icon="@mipmap\/ic_launcher" android:roundIcon="@mipmap\/ic_launcher"/' app/src/main/AndroidManifest.xml
+            sed -i 's/android:label="ARISE:Daily Workout Exercise"/android:label="ARISE:Daily Workout Exercise" android:icon="@mipmap\/ic_launcher" android:roundIcon="@mipmap\/ic_launcher"/' app/src/main/AndroidManifest.xml
           fi
 
           cat << 'EOF' > app/src/main/java/com/aj/system/AlarmReceiver.kt
@@ -213,14 +216,19 @@ jobs:
           import android.content.pm.ServiceInfo
           import android.location.GnssStatus
           import android.location.Location
-          import android.location.LocationListener
           import android.location.LocationManager
           import android.os.Build
-          import android.os.Bundle
           import android.os.IBinder
+          import android.os.Looper
+          import com.google.android.gms.location.FusedLocationProviderClient
+          import com.google.android.gms.location.LocationCallback
+          import com.google.android.gms.location.LocationRequest
+          import com.google.android.gms.location.LocationResult
+          import com.google.android.gms.location.LocationServices
+          import com.google.android.gms.location.Priority
           import java.util.Locale
 
-          class LocationService : Service(), LocationListener {
+          class LocationService : Service() {
               companion object {
                   const val CH_ID = "aj_gps_channel_v1"
                   const val NOTIF_ID = 3001
@@ -238,8 +246,16 @@ jobs:
               }
 
               private lateinit var lm: LocationManager
+              private lateinit var fusedClient: FusedLocationProviderClient
               private var lastLoc: Location? = null
               private var lastNotifMs = 0L
+
+              private val locCallback = object : LocationCallback() {
+                  override fun onLocationResult(result: LocationResult) {
+                      val loc = result.lastLocation ?: return
+                      emitLocation(loc, isCached = false)
+                  }
+              }
 
               private val gnssCb = object : GnssStatus.Callback() {
                   override fun onSatelliteStatusChanged(status: GnssStatus) {
@@ -278,7 +294,7 @@ jobs:
 
                   isRunning = true
                   createChannel()
-                  val notif = buildNotif("Locking real-time GPS signal...")
+                  val notif = buildNotif("Locking Google Fused GPS...")
                   try {
                       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                           startForeground(NOTIF_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
@@ -296,7 +312,7 @@ jobs:
                   if (!gpsOn && !netOn) {
                       onStatusUpdate?.invoke("GPS_OFF", "TURN ON PHONE LOCATION")
                   } else {
-                      onStatusUpdate?.invoke("SEARCHING", "BG GPS ACTIVE • LOCKING...")
+                      onStatusUpdate?.invoke("SEARCHING", "FUSED GPS ACTIVE • LOCKING...")
                   }
 
                   try {
@@ -304,41 +320,23 @@ jobs:
                       lm.registerGnssStatusCallback(gnssCb)
                   } catch (_: Exception) {}
 
+                  fusedClient = LocationServices.getFusedLocationProviderClient(this)
                   try {
-                      val providers = mutableListOf(
-                          LocationManager.GPS_PROVIDER,
-                          LocationManager.NETWORK_PROVIDER,
-                          LocationManager.PASSIVE_PROVIDER
-                      )
-                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                          providers.add(0, LocationManager.FUSED_PROVIDER)
+                      fusedClient.lastLocation.addOnSuccessListener { cached ->
+                          if (cached != null) emitLocation(cached, isCached = true)
                       }
-                      for (p in providers) {
-                          try {
-                              val cached = lm.getLastKnownLocation(p)
-                              if (cached != null) {
-                                  emitLocation(cached, isCached = true)
-                                  break
-                              }
-                          } catch (_: Exception) {}
-                      }
-                  } catch (_: Exception) {}
+                  } catch (_: SecurityException) {}
 
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                      try { lm.requestLocationUpdates(LocationManager.FUSED_PROVIDER, 1000L, 0f, this) } catch (_: Exception) {}
-                  }
-                  if (gpsOn) {
-                      try { lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0f, this) } catch (_: Exception) {}
-                  }
-                  if (netOn) {
-                      try { lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1500L, 0f, this) } catch (_: Exception) {}
-                  }
+                  try {
+                      val req = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L)
+                          .setMinUpdateIntervalMillis(500L)
+                          .setMinUpdateDistanceMeters(0f)
+                          .build()
+                      fusedClient.removeLocationUpdates(locCallback)
+                      fusedClient.requestLocationUpdates(req, locCallback, Looper.getMainLooper())
+                  } catch (_: SecurityException) {}
 
                   return START_STICKY
-              }
-
-              override fun onLocationChanged(location: Location) {
-                  emitLocation(location, isCached = false)
               }
 
               private fun emitLocation(loc: Location, isCached: Boolean) {
@@ -354,7 +352,7 @@ jobs:
                               }
                           }
                       }
-                      if (loc.accuracy <= 100f) {
+                      if (loc.accuracy <= 120f) {
                           lastLoc = loc
                           pointCount++
                       }
@@ -418,15 +416,14 @@ jobs:
 
               override fun onDestroy() {
                   isRunning = false
-                  try { lm.removeUpdates(this) } catch (_: Exception) {}
-                  try { lm.unregisterGnssStatusCallback(gnssCb) } catch (_: Exception) {}
+                  if (::fusedClient.isInitialized) {
+                      try { fusedClient.removeLocationUpdates(locCallback) } catch (_: Exception) {}
+                  }
+                  if (::lm.isInitialized) {
+                      try { lm.unregisterGnssStatusCallback(gnssCb) } catch (_: Exception) {}
+                  }
                   super.onDestroy()
               }
-
-              @Deprecated("Deprecated in Java")
-              override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
-              override fun onProviderEnabled(provider: String) {}
-              override fun onProviderDisabled(provider: String) {}
           }
           EOF
 
@@ -516,7 +513,7 @@ jobs:
                                       val conn = (URL(targetUrl).openConnection() as HttpURLConnection).apply {
                                           connectTimeout = 8000
                                           readTimeout = 8000
-                                          setRequestProperty("User-Agent", "AJSystemApp/2.2 (Android)")
+                                          setRequestProperty("User-Agent", "AJSystemApp/2.3 (Android)")
                                       }
                                       if (conn.responseCode == 200) {
                                           val mime = conn.contentType?.substringBefore(";") ?: "image/png"
@@ -579,6 +576,11 @@ jobs:
                   super.onResume()
                   web.onResume()
                   web.evaluateJavascript("window.__ajResumeAudio && window.__ajResumeAudio();", null)
+                  if (LocationService.isRunning) {
+                      val i = Intent(this, LocationService::class.java).apply { putExtra("reset", false) }
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i)
+                      else startService(i)
+                  }
                   if (LocationService.latestJson.isNotEmpty()) {
                       web.evaluateJavascript("window.__onAJNativeGps && window.__onAJNativeGps(${LocationService.latestJson});", null)
                   }
@@ -810,13 +812,15 @@ jobs:
               else window.__ajResumeAudio();
             });
 
-            // 3. Hook Geolocation early to Native Real-Time Background LocationService
+            // 3. Hook Geolocation early to Native Google Fused LocationService
             window.__ajGpsWatchers = {};
+            window.__ajSentFirstLock = false;
             var nextId = 100;
-            function toGeoPos(d) {
+            function toGeoPos(d, forceGoodAcc) {
               return {
                 coords: {
-                  latitude: d.lat, longitude: d.lng, accuracy: d.acc,
+                  latitude: d.lat, longitude: d.lng,
+                  accuracy: forceGoodAcc ? Math.min(d.acc || 15, 15) : d.acc,
                   altitude: d.alt, altitudeAccuracy: 5, heading: d.bearing, speed: d.spdMs
                 },
                 timestamp: Date.now()
@@ -829,7 +833,16 @@ jobs:
               var watchFn = function(success, error, opts) {
                 var id = ++nextId;
                 window.__ajGpsWatchers[id] = success;
+                window.__ajSentFirstLock = false;
                 try { window.AJNative.startBgGps(false); } catch(e) {}
+                try {
+                  var cached = window.AJNative.getBgGpsState();
+                  if (cached) {
+                    var d = JSON.parse(cached);
+                    window.__ajSentFirstLock = true;
+                    setTimeout(function(){ try { success(toGeoPos(d, true)); } catch(e) {} }, 150);
+                  }
+                } catch(e) {}
                 return id;
               };
               var clearFn = function(id) {
@@ -841,7 +854,7 @@ jobs:
               var getFn = function(success, error, opts) {
                 var cached = '';
                 try { cached = window.AJNative.getBgGpsState(); } catch(e) {}
-                if (cached) { try { success(toGeoPos(JSON.parse(cached))); return; } catch(e) {} }
+                if (cached) { try { success(toGeoPos(JSON.parse(cached), true)); return; } catch(e) {} }
                 var tid = ++nextId;
                 window.__ajGpsWatchers[tid] = function(pos) {
                   delete window.__ajGpsWatchers[tid];
@@ -982,6 +995,7 @@ jobs:
               if (!btn || !window.AJNative) return;
               var txt = (btn.textContent || '').toUpperCase();
               if (txt.indexOf('START PRO GPS') !== -1) {
+                window.__ajSentFirstLock = false;
                 window.AJNative.startBgGps(true);
               } else if (txt.indexOf('STOP PRO GPS') !== -1) {
                 window.AJNative.stopBgGps();
@@ -1006,13 +1020,17 @@ jobs:
               }
             };
 
-            // 4. Receive Real-Time Native GPS Packets & Update HUD
+            // 4. Receive Real-Time Google Fused GPS Packets & Update HUD + Map
             window.__onAJNativeGps = function(d) {
               if (window.__ajToGeoPos && window.__ajGpsWatchers) {
-                var pos = window.__ajToGeoPos(d);
-                Object.keys(window.__ajGpsWatchers).forEach(function(k) {
-                  try { window.__ajGpsWatchers[k](pos); } catch(e) {}
-                });
+                var isFirst = !window.__ajSentFirstLock;
+                if (isFirst || d.acc <= 75) {
+                  window.__ajSentFirstLock = true;
+                  var pos = window.__ajToGeoPos(d, isFirst);
+                  Object.keys(window.__ajGpsWatchers).forEach(function(k) {
+                    try { window.__ajGpsWatchers[k](pos); } catch(e) {}
+                  });
+                }
               }
               var pill = document.getElementById('ajBgPill');
               var locBtn = document.getElementById('ajTurnOnGpsBtn');
@@ -1051,7 +1069,7 @@ jobs:
               hud.id = 'ajProGpsHud';
               hud.innerHTML =
                 '<div class="aj-hud-row">' +
-                  '<span style="font-size:11px;font-weight:700;color:#00e5ff;">⚡ REAL-TIME NATIVE GPS PRO</span>' +
+                  '<span style="font-size:11px;font-weight:700;color:#00e5ff;">⚡ GOOGLE FUSED GPS PRO</span>' +
                   '<span id="ajBgPill" class="aj-bg-pill">BG GPS STANDBY</span>' +
                 '</div>' +
                 '<div class="aj-hud-row" style="margin-top:7px;">' +
@@ -1072,7 +1090,7 @@ jobs:
                   '<span>LAT/LNG: <b id="ajHudCoords">Waiting for lock...</b></span>' +
                   '<div style="display:flex;gap:5px;">' +
                     '<button id="ajTurnOnGpsBtn" onclick="window.AJNative && window.AJNative.openLocationSettings()" style="display:none;padding:3px 8px;border-radius:6px;border:1px solid #ff6e40;background:#4a1400;color:#ffab91;font-size:10px;font-weight:700;">TURN ON GPS</button>' +
-                    '<button onclick="if(window.AJNative){if(window.AJNative.isBgGpsRunning()){window.AJNative.stopBgGps();}else{window.AJNative.startBgGps(true);}}" style="padding:3px 8px;border-radius:6px;border:1px solid #00e5ff;background:#00334d;color:#00f0ff;font-size:10px;font-weight:700;">BG ON/OFF</button>' +
+                    '<button onclick="if(window.AJNative){if(window.AJNative.isBgGpsRunning()){window.AJNative.stopBgGps();}else{window.__ajSentFirstLock=false;window.AJNative.startBgGps(true);}}" style="padding:3px 8px;border-radius:6px;border:1px solid #00e5ff;background:#00334d;color:#00f0ff;font-size:10px;font-weight:700;">BG ON/OFF</button>' +
                   '</div>' +
                 '</div>';
 
