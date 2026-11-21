@@ -1,4 +1,4 @@
-name: Build ARISE v5.2 Studio VIP APK
+name: Build ARISE Play Store Signed AAB
 
 on:
   push:
@@ -29,9 +29,9 @@ jobs:
             yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
           fi
 
-      - name: Generate Native ARISE v5.2 Studio VIP Project (Android 12 - 16)
+      - name: Generate ARISE Play Store Release Project (Android 12 - 16)
         run: |
-          mkdir -p app/src/main/java/com/aj/system app/src/main/assets app/src/main/res/values
+          mkdir -p app/src/main/java/com/aj/system app/src/main/assets app/src/main/res/values keystore-backup
 
           cat << 'EOF' > gradle.properties
           org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
@@ -73,14 +73,26 @@ jobs:
               namespace = "com.aj.system"
               compileSdk = 36
               defaultConfig {
-                  applicationId = "com.aj.system"
+                  applicationId = "com.arise.dailyworkout.pro"
                   minSdk = 31
                   targetSdk = 36
-                  versionCode = 12
-                  versionName = "5.2"
+                  versionCode = 1
+                  versionName = "1.0.0"
+              }
+              signingConfigs {
+                  create("release") {
+                      storeFile = file("arise-release.jks")
+                      storePassword = System.getenv("ARISE_STORE_PASS") ?: "Arise@2026Pro"
+                      keyAlias = System.getenv("ARISE_KEY_ALIAS") ?: "arisekey"
+                      keyPassword = System.getenv("ARISE_KEY_PASS") ?: "Arise@2026Pro"
+                  }
               }
               buildTypes {
-                  release { isMinifyEnabled = false }
+                  getByName("release") {
+                      signingConfig = signingConfigs.getByName("release")
+                      isMinifyEnabled = false
+                      isShrinkResources = false
+                  }
               }
               compileOptions {
                   sourceCompatibility = JavaVersion.VERSION_17
@@ -128,7 +140,6 @@ jobs:
               <uses-permission android:name="android.permission.WAKE_LOCK" />
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
               <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-              <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
               <uses-permission android:name="com.android.vending.BILLING" />
 
               <application
@@ -460,6 +471,7 @@ jobs:
           import android.Manifest
           import android.annotation.SuppressLint
           import android.app.AlarmManager
+          import android.app.AlertDialog
           import android.app.Notification
           import android.app.NotificationChannel
           import android.app.NotificationManager
@@ -665,7 +677,7 @@ jobs:
                                       val conn = (URL(targetUrl).openConnection() as HttpURLConnection).apply {
                                           connectTimeout = 8000
                                           readTimeout = 8000
-                                          setRequestProperty("User-Agent", "ARISESystemApp/5.2 (Android)")
+                                          setRequestProperty("User-Agent", "ARISESystemApp/1.0 (Android)")
                                       }
                                       if (conn.responseCode == 200) {
                                           val mime = conn.contentType?.substringBefore(";") ?: "image/png"
@@ -785,14 +797,8 @@ jobs:
                               .build()
                           client.launchBillingFlow(this, flowParams)
                       } else {
-                          prefs.edit().putBoolean("vip_active", true).apply()
-                          LocationService.isVipTurbo = true
-                          triggerHaptic("success")
-                          Toast.makeText(this, "👑 ARISE VIP Preview Activated! (Play Billing connects once published)", Toast.LENGTH_LONG).show()
-                          if (prefs.getBoolean("vip_voice_on", true)) {
-                              speakCoach("Sovereign VIP Mode Activated. Welcome to Elite Tier, Hunter!")
-                          }
-                          web.evaluateJavascript("window.__onAJVipUpdated && window.__onAJVipUpdated(true);", null)
+                          Toast.makeText(this, "Connecting to Google Play Billing... Ensure subscription 'arise_vip_monthly' is active in Play Console.", Toast.LENGTH_LONG).show()
+                          queryVipProduct()
                       }
                   }
               }
@@ -801,7 +807,7 @@ jobs:
                   val client = billingClient
                   if (client == null || !client.isReady) {
                       if (!silent) runOnUiThread {
-                          Toast.makeText(this, "Play Billing will sync automatically once published on Play Store.", Toast.LENGTH_SHORT).show()
+                          Toast.makeText(this, "Unable to reach Google Play Store. Check your internet connection.", Toast.LENGTH_SHORT).show()
                       }
                       return
                   }
@@ -813,15 +819,13 @@ jobs:
                           val hasVip = purchases.any {
                               it.products.contains(VIP_PRODUCT_ID) && it.purchaseState == Purchase.PurchaseState.PURCHASED
                           }
-                          if (hasVip) {
-                              prefs.edit().putBoolean("vip_active", true).apply()
-                              LocationService.isVipTurbo = true
-                              runOnUiThread {
-                                  web.evaluateJavascript("window.__onAJVipUpdated && window.__onAJVipUpdated(true);", null)
-                              }
+                          prefs.edit().putBoolean("vip_active", hasVip).apply()
+                          LocationService.isVipTurbo = hasVip
+                          runOnUiThread {
+                              web.evaluateJavascript("window.__onAJVipUpdated && window.__onAJVipUpdated($hasVip);", null)
                           }
                           if (!silent) runOnUiThread {
-                              Toast.makeText(this, if (hasVip) "👑 VIP Restored!" else "No active Play subscription found.", Toast.LENGTH_SHORT).show()
+                              Toast.makeText(this, if (hasVip) "👑 Sovereign VIP Restored!" else "No active VIP subscription found.", Toast.LENGTH_SHORT).show()
                           }
                       }
                   }
@@ -1072,6 +1076,20 @@ jobs:
                   if (need.isNotEmpty()) requestPermissions(need.toTypedArray(), 101)
               }
 
+              // Play Store Required Prominent Disclosure before Background Location Settings
+              fun showBgLocationDisclosure() {
+                  runOnUiThread {
+                      AlertDialog.Builder(this)
+                          .setTitle("Background Location Access")
+                          .setMessage("ARISE collects location data to track your running route, distance, and speed even when the app is closed or your screen is locked during an active workout. Location data stays locally on your device.")
+                          .setPositiveButton("Continue to Settings") { _, _ ->
+                              openAppPermissionSettings()
+                          }
+                          .setNegativeButton("Not Now", null)
+                          .show()
+                  }
+              }
+
               fun openAppPermissionSettings() {
                   try {
                       Toast.makeText(this, "Tap Permissions → Location → Allow all the time", Toast.LENGTH_LONG).show()
@@ -1161,7 +1179,7 @@ jobs:
 
                   @JavascriptInterface fun requestBackgroundLocation() {
                       act.triggerHaptic("tap")
-                      act.runOnUiThread { act.openAppPermissionSettings() }
+                      act.showBgLocationDisclosure()
                   }
 
                   @JavascriptInterface fun openLocationSettings() {
@@ -1316,8 +1334,7 @@ jobs:
               window.Image = WrappedImage;
             }
 
-            // ZERO-CRACKLE STUDIO AUDIO ENGINE:
-            // Uses playback buffer (prevents tap underrun crackle) + Anti-Click Lowpass + Bass Boost + Master Limiter
+            // ZERO-CRACKLE STUDIO AUDIO ENGINE
             var ctxList = [];
             var resumeCtxs = [];
             var resumeMedia = [];
@@ -1381,14 +1398,9 @@ jobs:
 
             window.__ajSetBassBoost = function(on) {
               ctxList.forEach(function(c) {
-                try {
-                  if (c && c.__ajBass) {
-                    c.__ajBass.gain.setTargetAtTime(on ? 4.5 : 0, c.currentTime, 0.06);
-                  }
-                } catch(e) {}
+                try { if (c && c.__ajBass) c.__ajBass.gain.setTargetAtTime(on ? 4.5 : 0, c.currentTime, 0.06); } catch(e) {}
               });
             };
-
             window.__ajDuckAudio = function(duck) {
               var target = duck ? 0.18 : 0.64;
               ctxList.forEach(function(c) {
@@ -1401,7 +1413,6 @@ jobs:
                 } catch(e) {}
               });
             };
-
             window.__ajPauseAudio = function() {
               resumeCtxs = [];
               ctxList.forEach(function(c) {
@@ -1496,27 +1507,21 @@ jobs:
           cat << 'EOF' >> app/src/main/assets/index.html
           <style>
             * { -webkit-tap-highlight-color: transparent; }
-            html {
-              background-color: #030812 !important;
-              overflow-y: auto !important; height: auto !important; min-height: 100% !important;
-            }
+            html { background-color: #030812 !important; overflow-y: auto !important; height: auto !important; min-height: 100% !important; }
             body {
               background-color: #030812 !important; font-variant-numeric: tabular-nums;
               overflow-y: auto !important; height: auto !important; min-height: 100vh !important;
               touch-action: pan-y !important; -webkit-overflow-scrolling: touch !important;
             }
-            /* ZERO-FLASH BUTTON ACTIVE STATE (No filter override!) */
             button { transition: transform 0.11s ease, opacity 0.11s ease !important; }
             button:active { transform: scale(0.97) !important; opacity: 0.88 !important; }
 
-            /* ZERO-FLASH ROOT-LEVEL VIP LUXURY THEMES (Never flashes Cyan on tap!) */
             html.vip-theme-gold { filter: hue-rotate(192deg) saturate(1.25) brightness(1.04); }
             html.vip-theme-crimson { filter: hue-rotate(155deg) saturate(1.35) contrast(1.04); }
             html.vip-theme-emerald { filter: hue-rotate(-52deg) saturate(1.2); }
             html.vip-theme-amethyst { filter: hue-rotate(82deg) saturate(1.25); }
             html.vip-theme-frost { filter: saturate(0.28) brightness(1.12) contrast(1.06); }
 
-            /* Sticky Live GPS Mini-Bar */
             #ariseLiveGpsStrip {
               position: sticky; top: 0; z-index: 99980; display: none;
               padding: 6px 12px; font-family: monospace, sans-serif; font-size: 11px; font-weight: 800;
@@ -1526,7 +1531,6 @@ jobs:
             }
             #ariseLiveGpsStrip.active { display: flex; }
 
-            /* VIP Crown Pill in Header */
             .arise-vip-crown {
               display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 99px;
               font-size: 9px; font-weight: 900; letter-spacing: 1px; vertical-align: middle;
@@ -1534,7 +1538,6 @@ jobs:
               box-shadow: 0 0 10px rgba(255, 213, 79, 0.6);
             }
 
-            /* Ultra-Pro Zero-Black-Screen Awakening Intro */
             #ariseIntroOverlay {
               position: fixed; inset: 0; z-index: 999999;
               background: radial-gradient(circle at 50% 48%, #0a2a4d 0%, #030812 62%, #010308 100%);
@@ -1591,7 +1594,6 @@ jobs:
             }
             .arise-boot-txt { margin-top: 10px; font-size: 10px; color: #7cd4f0; letter-spacing: 1.6px; }
 
-            /* Biometric Security Lock Screen */
             #ariseLockOverlay {
               position: fixed; inset: 0; z-index: 999998;
               background: radial-gradient(circle at 50% 35%, #071e36 0%, #02060f 75%);
@@ -1610,7 +1612,6 @@ jobs:
               color: #ffffff; font-weight: 900; font-size: 13px; letter-spacing: 1.8px;
             }
 
-            /* Sovereign VIP Card & Modal */
             #ariseVipBanner {
               margin: 10px 0 12px 0; padding: 13px 14px; border-radius: 14px;
               background: linear-gradient(135deg, #1b1303 0%, #2e2005 55%, #161004 100%);
@@ -1648,7 +1649,6 @@ jobs:
             }
             .vip-theme-pill.active { background: #ffd54f; color: #1a1100; }
 
-            /* Integrated Pro Settings Card */
             #ariseInlineProCard {
               margin: 12px 0 14px 0; padding: 14px; border-radius: 14px;
               background: linear-gradient(155deg, rgba(6,22,40,0.96), rgba(9,32,56,0.94));
@@ -1666,7 +1666,6 @@ jobs:
             }
             .arise-pro-btn.on { background: #00e676; color: #021a0d; border-color: #00e676; }
 
-            /* Pro GPS HUD */
             #ajProGpsHud {
               margin: 10px 0; padding: 12px; border-radius: 14px;
               background: linear-gradient(145deg, rgba(6,18,32,0.96), rgba(10,28,48,0.94));
@@ -1697,7 +1696,6 @@ jobs:
           (function(){
             var vipThemes = ['vip-theme-gold', 'vip-theme-crimson', 'vip-theme-emerald', 'vip-theme-amethyst', 'vip-theme-frost'];
 
-            // 1. Live Sticky GPS Strip
             function ensureLiveGpsStrip() {
               if (document.getElementById('ariseLiveGpsStrip') || !document.body) return;
               var st = document.createElement('div');
@@ -1706,7 +1704,6 @@ jobs:
               document.body.insertBefore(st, document.body.firstChild);
             }
 
-            // 2. Clean Tactile Haptic + Event-Based UI Sync
             var syncTimer = 0;
             function scheduleUiSync() {
               clearTimeout(syncTimer);
@@ -1741,13 +1738,10 @@ jobs:
               }
             }, true);
 
-            // 3. Apply Saved VIP Theme on ROOT <html> (Zero Cyan Flash on Tap!)
             function applyVipTheme(theme) {
               var root = document.documentElement;
               vipThemes.forEach(function(cls) { root.classList.remove(cls); });
-              if (theme && theme !== 'cyan') {
-                root.classList.add('vip-theme-' + theme);
-              }
+              if (theme && theme !== 'cyan') root.classList.add('vip-theme-' + theme);
               document.querySelectorAll('.vip-theme-pill').forEach(function(b) {
                 b.classList.toggle('active', b.getAttribute('data-theme') === theme);
               });
@@ -1765,7 +1759,6 @@ jobs:
               applyVipTheme(savedT);
             }
 
-            // Show glowing VIP Crown badge in top header when VIP is active
             function syncVipHeaderBadge() {
               if (!window.AJNative || !window.AJNative.isVip || !window.AJNative.isVip()) return;
               if (document.getElementById('ariseHeaderVipCrown')) return;
@@ -1784,7 +1777,6 @@ jobs:
               }
             }
 
-            // 4. Auto-dismiss old Welcome Modal & Brand Safety Net
             function dismissOldWelcome() {
               document.querySelectorAll('button').forEach(function(b) {
                 var t = (b.textContent || '').toUpperCase();
@@ -1825,7 +1817,6 @@ jobs:
               }
             }
 
-            // 5. Ultra-Pro Zero-Black-Screen Particle Awakening Intro
             function playAriseIntro(force) {
               ensureLiveGpsStrip();
               var allow = force || !(window.AJNative && window.AJNative.isIntroEnabled && !window.AJNative.isIntroEnabled());
@@ -1916,7 +1907,6 @@ jobs:
             if (document.body) playAriseIntro(false);
             else document.addEventListener('DOMContentLoaded', function(){ playAriseIntro(false); });
 
-            // 6. Biometric Lock Screen Overlay
             function ensureLockScreen() {
               if (document.getElementById('ariseLockOverlay')) return;
               var lk = document.createElement('div');
@@ -1948,7 +1938,6 @@ jobs:
               }
             }, 2150);
 
-            // 7. Sovereign VIP Modal (₹2/Month — 5 Luxury Themes + Bass Boost + Voice Coach + Share)
             var coachLines = [
               "System Awakened. Sovereign VIP Voice Coach is active. Let us crush today's workout!",
               "Every single rep builds your legacy. Stay sharp, Hunter!",
@@ -2052,7 +2041,6 @@ jobs:
             };
             window.__onAJVipUpdated = function() { window.__ariseRefreshVipUI(); };
 
-            // 8. Hide ONLY DEV TEST BAR & DEV MODE Button
             function hideDevTestBar() {
               document.querySelectorAll('div, section').forEach(function(el) {
                 if (el.id === 'ariseInlineProCard' || el.id === 'ajProGpsHud' || el.id === 'ariseVipBanner') return;
@@ -2068,7 +2056,6 @@ jobs:
               });
             }
 
-            // 9. Sync Real Hardware Steps
             var latestHwSteps = 0;
             window.__onAJNativeStep = function(cnt) {
               latestHwSteps = cnt || 0;
@@ -2086,7 +2073,6 @@ jobs:
               setTimeout(function(){ window.__onAJNativeStep(window.AJNative.getSteps()); }, 700);
             }
 
-            // 10. Native Alarm Bridge
             if (window.AJNative && window.saveToggleAlarm) {
               var origAlm = window.saveToggleAlarm;
               window.saveToggleAlarm = function () {
@@ -2105,7 +2091,6 @@ jobs:
               };
             }
 
-            // 11. Integrated VIP Banner + ARISE PRO SECURITY & ENGINE Card inside Settings Tab
             function refreshProCard() {
               if (!window.AJNative) return;
               window.__ariseRefreshVipUI();
@@ -2161,7 +2146,7 @@ jobs:
               pro.innerHTML =
                 '<div style="display:flex;justify-content:space-between;align-items:center;">' +
                   '<span style="font-size:13px;font-weight:900;color:#00f7ff;letter-spacing:1.4px;">⚡ ARISE PRO SECURITY &amp; ENGINE</span>' +
-                  '<span style="font-size:10px;color:#00e676;font-weight:800;">v5.2 STUDIO</span>' +
+                  '<span style="font-size:10px;color:#00e676;font-weight:800;">v1.0.0 RELEASE</span>' +
                 '</div>' +
                 '<div class="arise-pro-row">' +
                   '<div><div style="font-size:12px;font-weight:700;">🔒 Fingerprint / Face / PIN Lock</div><div style="font-size:10px;color:#7ec8e3;">Biometric security on app open</div></div>' +
@@ -2192,7 +2177,6 @@ jobs:
               refreshProCard();
             }
 
-            // 12. Map Mode Switcher & Pro GPS HUD
             window.__ajSetMapMode = function(mode) {
               document.querySelectorAll('.aj-layer-btn').forEach(function(b) {
                 b.classList.toggle('active', b.getAttribute('data-mode') === mode);
@@ -2319,11 +2303,49 @@ jobs:
           </script>
           EOF
 
-      - name: Build Debug APK
-        run: gradle assembleDebug
+      - name: Setup Release Signing Keystore
+        env:
+          ARISE_KEYSTORE_B64: ${{ secrets.ARISE_KEYSTORE_B64 }}
+          ARISE_STORE_PASS: ${{ secrets.ARISE_STORE_PASS }}
+          ARISE_KEY_ALIAS: ${{ secrets.ARISE_KEY_ALIAS }}
+          ARISE_KEY_PASS: ${{ secrets.ARISE_KEY_PASS }}
+        run: |
+          STORE_PASS="${ARISE_STORE_PASS:-Arise@2026Pro}"
+          KEY_ALIAS="${ARISE_KEY_ALIAS:-arisekey}"
+          KEY_PASS="${ARISE_KEY_PASS:-Arise@2026Pro}"
+          if [ -n "$ARISE_KEYSTORE_B64" ]; then
+            echo "$ARISE_KEYSTORE_B64" | base64 -d > app/arise-release.jks
+            echo "Using saved GitHub Secret keystore."
+          else
+            keytool -genkeypair -v \
+              -keystore app/arise-release.jks \
+              -alias "$KEY_ALIAS" \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$STORE_PASS" -keypass "$KEY_PASS" \
+              -dname "CN=ARISE Fitness, OU=Mobile, O=ARISE, L=India, S=IN, C=IN"
+            cp app/arise-release.jks keystore-backup/arise-release.jks
+            base64 -w 0 app/arise-release.jks > keystore-backup/ARISE_KEYSTORE_B64.txt
+            echo "NEW_KEY_CREATED=true" >> $GITHUB_ENV
+          fi
 
-      - name: Upload ARISE v5.2 Studio VIP APK
+      - name: Build Signed Release AAB & APK
+        env:
+          ARISE_STORE_PASS: ${{ secrets.ARISE_STORE_PASS }}
+          ARISE_KEY_ALIAS: ${{ secrets.ARISE_KEY_ALIAS }}
+          ARISE_KEY_PASS: ${{ secrets.ARISE_KEY_PASS }}
+        run: gradle bundleRelease assembleRelease
+
+      - name: Upload Play Store Signed AAB & Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: ARISE-v5.2-Studio-VIP-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: ARISE-PlayStore-Signed-AAB
+          path: |
+            app/build/outputs/bundle/release/app-release.aab
+            app/build/outputs/apk/release/app-release.apk
+
+      - name: Upload Keystore Backup (SAVE TO GOOGLE DRIVE!)
+        if: env.NEW_KEY_CREATED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ARISE-KEYSTORE-BACKUP-KEEP-SAFE
+          path: keystore-backup/
