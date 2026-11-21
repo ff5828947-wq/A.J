@@ -1,4 +1,4 @@
-name: Build ARISE Pro Kotlin APK
+name: Build ARISE Ultra Kotlin APK
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Generate Native ARISE Pro Project
+      - name: Generate Native ARISE Ultra Project
         run: |
           mkdir -p app/src/main/java/com/aj/system app/src/main/assets app/src/main/res/values
 
@@ -70,8 +70,8 @@ jobs:
                   applicationId = "com.aj.system"
                   minSdk = 24
                   targetSdk = 35
-                  versionCode = 7
-                  versionName = "3.1"
+                  versionCode = 8
+                  versionName = "4.0"
               }
               buildTypes {
                   release { isMinifyEnabled = false }
@@ -83,6 +83,7 @@ jobs:
               kotlinOptions { jvmTarget = "17" }
           }
           dependencies {
+              implementation("androidx.core:core-ktx:1.13.1")
               implementation("androidx.appcompat:appcompat:1.7.0")
               implementation("androidx.biometric:biometric:1.1.0")
               implementation("com.google.android.material:material:1.12.0")
@@ -94,7 +95,7 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <style name="Theme.ARISE" parent="Theme.AppCompat.NoActionBar">
-                  <item name="android:windowBackground">@android:color/black</item>
+                  <item name="android:windowBackground">#030812</item>
                   <item name="android:colorBackground">#030812</item>
                   <item name="android:statusBarColor">#030812</item>
                   <item name="android:navigationBarColor">#030812</item>
@@ -122,12 +123,14 @@ jobs:
 
               <application
                   android:allowBackup="true"
+                  android:hardwareAccelerated="true"
                   android:label="ARISE: Daily Workout Exercise"
                   android:theme="@style/Theme.ARISE"
                   android:usesCleartextTraffic="true">
                   <activity
                       android:name=".MainActivity"
                       android:exported="true"
+                      android:hardwareAccelerated="true"
                       android:screenOrientation="portrait"
                       android:configChanges="orientation|screenSize|keyboardHidden">
                       <intent-filter>
@@ -149,8 +152,10 @@ jobs:
             mkdir -p app/src/main/res/mipmap-xxxhdpi
             if command -v convert >/dev/null 2>&1; then
               convert "$LOGO_FILE" -resize 512x512^ -gravity center -extent 512x512 PNG32:app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+              cp app/src/main/res/mipmap-xxxhdpi/ic_launcher.png app/src/main/assets/arise_logo.png
             else
               cp "$LOGO_FILE" app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+              cp "$LOGO_FILE" app/src/main/assets/arise_logo.png
             fi
             sed -i 's/android:label="ARISE: Daily Workout Exercise"/android:label="ARISE: Daily Workout Exercise" android:icon="@mipmap\/ic_launcher" android:roundIcon="@mipmap\/ic_launcher"/' app/src/main/AndroidManifest.xml
           fi
@@ -459,17 +464,24 @@ jobs:
           import android.content.Intent
           import android.content.SharedPreferences
           import android.content.pm.PackageManager
+          import android.graphics.BitmapFactory
           import android.graphics.Color
+          import android.graphics.Typeface
           import android.hardware.Sensor
           import android.hardware.SensorEvent
           import android.hardware.SensorEventListener
           import android.hardware.SensorManager
+          import android.media.AudioAttributes
           import android.net.Uri
           import android.os.Build
           import android.os.Bundle
           import android.os.VibrationEffect
           import android.os.Vibrator
+          import android.os.VibratorManager
           import android.provider.Settings
+          import android.view.Gravity
+          import android.view.HapticFeedbackConstants
+          import android.view.View
           import android.view.WindowManager
           import android.webkit.GeolocationPermissions
           import android.webkit.JavascriptInterface
@@ -482,6 +494,10 @@ jobs:
           import android.webkit.WebView
           import android.webkit.WebViewClient
           import android.widget.FrameLayout
+          import android.widget.ImageView
+          import android.widget.LinearLayout
+          import android.widget.TextView
+          import android.widget.Toast
           import androidx.biometric.BiometricManager
           import androidx.biometric.BiometricPrompt
           import androidx.core.content.ContextCompat
@@ -502,6 +518,7 @@ jobs:
               }
 
               private lateinit var web: WebView
+              private lateinit var nativeSplash: LinearLayout
               private lateinit var prefs: SharedPreferences
               private lateinit var sensorManager: SensorManager
               private var stepDetector: Sensor? = null
@@ -525,12 +542,15 @@ jobs:
                   setupStepSensor()
                   requestAppPerms()
 
-                  // Safe container that respects Android 15 Edge-to-Edge Status Bar & Nav Bar insets
                   val root = FrameLayout(this).apply {
                       setBackgroundColor(Color.parseColor("#030812"))
                   }
-                  web = WebView(this)
-                  web.setBackgroundColor(Color.parseColor("#030812"))
+
+                  web = WebView(this).apply {
+                      setBackgroundColor(Color.parseColor("#030812"))
+                      setLayerType(View.LAYER_TYPE_HARDWARE, null)
+                      isHapticFeedbackEnabled = true
+                  }
                   root.addView(
                       web,
                       FrameLayout.LayoutParams(
@@ -538,6 +558,44 @@ jobs:
                           FrameLayout.LayoutParams.MATCH_PARENT
                       )
                   )
+
+                  // Zero-Black-Screen Native Splash Overlay using real ARISE logo
+                  nativeSplash = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      gravity = Gravity.CENTER
+                      setBackgroundColor(Color.parseColor("#030812"))
+                      val img = ImageView(this@MainActivity).apply {
+                          val dp = resources.displayMetrics.density
+                          val sz = (128 * dp).toInt()
+                          layoutParams = LinearLayout.LayoutParams(sz, sz)
+                          scaleType = ImageView.ScaleType.FIT_CENTER
+                          try {
+                              val bmp = BitmapFactory.decodeStream(assets.open("arise_logo.png"))
+                              setImageBitmap(bmp)
+                          } catch (_: Exception) {
+                              setImageResource(android.R.drawable.ic_menu_compass)
+                          }
+                      }
+                      val title = TextView(this@MainActivity).apply {
+                          text = "ARISE"
+                          setTextColor(Color.parseColor("#00F0FF"))
+                          textSize = 28f
+                          typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+                          letterSpacing = 0.35f
+                          gravity = Gravity.CENTER
+                          setPadding(0, (18 * resources.displayMetrics.density).toInt(), 0, 0)
+                      }
+                      addView(img)
+                      addView(title)
+                  }
+                  root.addView(
+                      nativeSplash,
+                      FrameLayout.LayoutParams(
+                          FrameLayout.LayoutParams.MATCH_PARENT,
+                          FrameLayout.LayoutParams.MATCH_PARENT
+                      )
+                  )
+
                   setContentView(root)
 
                   ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
@@ -559,6 +617,15 @@ jobs:
 
                   web.addJavascriptInterface(AJBridge(this), "AJNative")
                   web.webViewClient = object : WebViewClient() {
+                      override fun onPageFinished(view: WebView?, url: String?) {
+                          super.onPageFinished(view, url)
+                          nativeSplash.animate()
+                              .alpha(0f)
+                              .setDuration(280L)
+                              .withEndAction { nativeSplash.visibility = View.GONE }
+                              .start()
+                      }
+
                       override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                           val urlStr = request?.url?.toString() ?: return null
                           if (urlStr.contains("carto", ignoreCase = true) ||
@@ -581,7 +648,7 @@ jobs:
                                       val conn = (URL(targetUrl).openConnection() as HttpURLConnection).apply {
                                           connectTimeout = 8000
                                           readTimeout = 8000
-                                          setRequestProperty("User-Agent", "ARISESystemApp/3.1 (Android)")
+                                          setRequestProperty("User-Agent", "ARISESystemApp/4.0 (Android)")
                                       }
                                       if (conn.responseCode == 200) {
                                           val mime = conn.contentType?.substringBefore(";") ?: "image/png"
@@ -632,6 +699,57 @@ jobs:
                   }
 
                   web.loadUrl("file:///android_asset/index.html")
+              }
+
+              private fun getVibrator(): Vibrator? {
+                  return try {
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                          val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                          vm.defaultVibrator
+                      } else {
+                          @Suppress("DEPRECATION")
+                          getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                      }
+                  } catch (_: Exception) { null }
+              }
+
+              fun triggerHaptic(style: String = "click") {
+                  if (!prefs.getBoolean("haptics_on", true)) return
+                  runOnUiThread {
+                      try {
+                          val flag = HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
+                          when (style) {
+                              "tick" -> web.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK, flag)
+                              "heavy" -> web.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, flag)
+                              else -> web.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY, flag)
+                          }
+                      } catch (_: Exception) {}
+                  }
+                  try {
+                      val v = getVibrator() ?: return
+                      if (!v.hasVibrator()) return
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                          val effect = when (style) {
+                              "tick" -> VibrationEffect.createOneShot(18L, 180)
+                              "heavy" -> VibrationEffect.createOneShot(45L, 255)
+                              "success" -> VibrationEffect.createWaveform(longArrayOf(0, 28, 55, 42), intArrayOf(0, 220, 0, 255), -1)
+                              else -> VibrationEffect.createOneShot(26L, 230)
+                          }
+                          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                              v.vibrate(effect)
+                          } else {
+                              val attrs = AudioAttributes.Builder()
+                                  .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                  .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                                  .build()
+                              @Suppress("DEPRECATION")
+                              v.vibrate(effect, attrs)
+                          }
+                      } else {
+                          @Suppress("DEPRECATION")
+                          v.vibrate(if (style == "heavy") 45L else 26L)
+                      }
+                  } catch (_: Exception) {}
               }
 
               private fun todayKey(): String = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
@@ -707,7 +825,7 @@ jobs:
                           override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                               super.onAuthenticationSucceeded(result)
                               isUnlockedThisSession = true
-                              vibrateDevice(30)
+                              triggerHaptic("success")
                               web.evaluateJavascript("window.__onAJBioResult && window.__onAJBioResult(true, 'Verified');", null)
                           }
                           override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
@@ -717,7 +835,7 @@ jobs:
                           }
                           override fun onAuthenticationFailed() {
                               super.onAuthenticationFailed()
-                              vibrateDevice(55)
+                              triggerHaptic("heavy")
                           }
                       })
                       val info = BiometricPrompt.PromptInfo.Builder()
@@ -727,20 +845,6 @@ jobs:
                           .build()
                       try { prompt.authenticate(info) } catch (_: Exception) {}
                   }
-              }
-
-              fun vibrateDevice(ms: Long) {
-                  if (!prefs.getBoolean("haptics_on", true)) return
-                  try {
-                      @Suppress("DEPRECATION")
-                      val v = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                          v.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE))
-                      } else {
-                          @Suppress("DEPRECATION")
-                          v.vibrate(ms)
-                      }
-                  } catch (_: Exception) {}
               }
 
               override fun onPause() {
@@ -756,9 +860,10 @@ jobs:
                   registerStepListener()
                   web.evaluateJavascript("window.__ajResumeAudio && window.__ajResumeAudio();", null)
                   web.evaluateJavascript("window.__onAJNativeStep && window.__onAJNativeStep($todaySteps);", null)
+                  web.evaluateJavascript("window.__ariseRefreshPro && window.__ariseRefreshPro();", null)
 
                   val lockEnabled = prefs.getBoolean("bio_lock_on", false)
-                  if (lockEnabled && (!isUnlockedThisSession || (lastPauseMs > 0 && System.currentTimeMillis() - lastPauseMs > 15000L))) {
+                  if (lockEnabled && (!isUnlockedThisSession || (lastPauseMs > 0 && System.currentTimeMillis() - lastPauseMs > 12000L))) {
                       isUnlockedThisSession = false
                       web.evaluateJavascript("window.__ajShowLockScreen && window.__ajShowLockScreen();", null)
                   }
@@ -804,6 +909,7 @@ jobs:
 
               fun openAppPermissionSettings() {
                   try {
+                      Toast.makeText(this, "Tap Permissions → Location → Allow all the time", Toast.LENGTH_LONG).show()
                       val i = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                           data = Uri.fromParts("package", packageName, null)
                           flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -836,23 +942,31 @@ jobs:
 
               class AJBridge(private val act: MainActivity) {
                   @JavascriptInterface fun setMapMode(mode: String) { currentMapMode = mode; act.clearWebCache() }
-                  @JavascriptInterface fun vibrate(ms: Int) { act.vibrateDevice(ms.toLong()) }
+                  @JavascriptInterface fun haptic(style: String) { act.triggerHaptic(style) }
+                  @JavascriptInterface fun vibrate(ms: Int) { act.triggerHaptic(if (ms >= 35) "heavy" else "click") }
                   @JavascriptInterface fun getSteps(): Int = act.todaySteps
                   @JavascriptInterface fun hasHardwareSteps(): Boolean = act.hasHardwareSteps
-                  @JavascriptInterface fun resetSteps() { act.resetHardwareSteps() }
+                  @JavascriptInterface fun resetSteps() { act.resetHardwareSteps(); act.triggerHaptic("heavy") }
 
                   @JavascriptInterface fun isBioLockEnabled(): Boolean = act.prefs.getBoolean("bio_lock_on", false)
                   @JavascriptInterface fun setBioLockEnabled(on: Boolean) {
                       act.prefs.edit().putBoolean("bio_lock_on", on).apply()
                       if (on) act.isUnlockedThisSession = true
+                      act.triggerHaptic("click")
                   }
                   @JavascriptInterface fun triggerBiometric(reason: String) { act.triggerBiometricUnlock(reason) }
 
                   @JavascriptInterface fun isHapticsEnabled(): Boolean = act.prefs.getBoolean("haptics_on", true)
-                  @JavascriptInterface fun setHapticsEnabled(on: Boolean) { act.prefs.edit().putBoolean("haptics_on", on).apply() }
+                  @JavascriptInterface fun setHapticsEnabled(on: Boolean) {
+                      act.prefs.edit().putBoolean("haptics_on", on).apply()
+                      if (on) act.triggerHaptic("success")
+                  }
 
                   @JavascriptInterface fun isIntroEnabled(): Boolean = act.prefs.getBoolean("intro_on", true)
-                  @JavascriptInterface fun setIntroEnabled(on: Boolean) { act.prefs.edit().putBoolean("intro_on", on).apply() }
+                  @JavascriptInterface fun setIntroEnabled(on: Boolean) {
+                      act.prefs.edit().putBoolean("intro_on", on).apply()
+                      act.triggerHaptic("click")
+                  }
 
                   @JavascriptInterface fun hasBackgroundLocation(): Boolean {
                       return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -863,6 +977,7 @@ jobs:
                   }
 
                   @JavascriptInterface fun requestBackgroundLocation() {
+                      act.triggerHaptic("click")
                       act.runOnUiThread {
                           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                               act.openAppPermissionSettings()
@@ -892,11 +1007,13 @@ jobs:
                       val i = Intent(act, LocationService::class.java).apply { putExtra("reset", reset) }
                       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) act.startForegroundService(i)
                       else act.startService(i)
+                      act.triggerHaptic("success")
                   }
 
                   @JavascriptInterface fun stopBgGps() {
                       act.stopService(Intent(act, LocationService::class.java))
                       LocationService.onStatusUpdate?.invoke("STOPPED", "BG GPS STOPPED")
+                      act.triggerHaptic("heavy")
                   }
 
                   @JavascriptInterface fun getBgGpsState(): String = LocationService.latestJson
@@ -947,13 +1064,51 @@ jobs:
           cp "$HTML_FILE" app/src/main/assets/index.html
 
           python3 - << 'PYEOF'
+          import re
           path = "app/src/main/assets/index.html"
           with open(path, "r", encoding="utf-8", errors="ignore") as f:
               html = f.read()
 
+          # Permanent build-time Play Store safe rebranding (zero flicker!)
+          replacements = [
+              (r'A\.J\.\s*SYSTEM\s*SHOP', 'ARISE SYSTEM SHOP'),
+              (r'A\.J\s*BGM\s*JUKEBOX', 'ARISE BGM JUKEBOX'),
+              (r'A\.J\s*PROTOCOL', 'ARISE PROTOCOL'),
+              (r'A\.J\s*LOG', 'ARISE LOG'),
+              (r'WELCOME,\s*HUNTER\s*A\.J\.?', 'WELCOME, HUNTER.'),
+              (r'WELCOME\s*HUNTER\s*A\.J\.?', 'WELCOME HUNTER'),
+              (r'ENTER\s*A\.J', 'ENTER ARISE'),
+              (r'SHADOW\s*MONARCH', 'APEX SOVEREIGN'),
+              (r"MONARCH'S\s*DOMAIN", "SOVEREIGN'S DOMAIN"),
+              (r'MONARCH\s*EXAM', 'SOVEREIGN EXAM'),
+              (r'SHADOW\s*ARMY', 'ELITE SQUAD'),
+              (r'SHADOW\s*RUNNER', 'APEX RUNNER'),
+              (r'SHADOW\s*ANT\s*KING', 'APEX PHANTOM'),
+              (r'\bIGRIS\b', 'VANGUARD'),
+              (r'\bTANK\b', 'TITAN'),
+              (r'\bIRON\b', 'AEGIS'),
+              (r'\bTUSK\b', 'BERSERKER'),
+              (r'\bBERU\b', 'PHANTOM'),
+              (r"name:\s*'A\.J'", "name: 'ARISE'"),
+              (r'name:\s*"A\.J"', 'name: "ARISE"'),
+          ]
+          for pat, rep in replacements:
+              html = re.sub(pat, rep, html, flags=re.IGNORECASE)
+
           early_patch = """<script>
           (function(){
-            // 1. Suppress jittery web devicemotion false-steps when hardware step sensor is available
+            // 1. Auto-migrate saved 'A.J' hunter name in localStorage to 'ARISE' once
+            try {
+              for (var i = 0; i < localStorage.length; i++) {
+                var k = localStorage.key(i);
+                var v = localStorage.getItem(k);
+                if (v && v.indexOf('"A.J"') !== -1) {
+                  localStorage.setItem(k, v.replace(/"A\\.J"/g, '"ARISE"'));
+                }
+              }
+            } catch(e) {}
+
+            // 2. Suppress jittery web devicemotion false-steps when hardware step sensor is available
             var origAddEvt = window.addEventListener;
             window.addEventListener = function(type, listener, opts) {
               if (type === 'devicemotion' && window.AJNative && window.AJNative.hasHardwareSteps && window.AJNative.hasHardwareSteps()) {
@@ -962,7 +1117,7 @@ jobs:
               return origAddEvt.call(this, type, listener, opts);
             };
 
-            // 2. Track all map tile Images so changing map mode refreshes canvas immediately
+            // 3. Track all map tile Images so changing map mode refreshes canvas immediately
             window.__ajTileImgs = [];
             var OrigImage = window.Image;
             if (OrigImage) {
@@ -992,7 +1147,7 @@ jobs:
               window.Image = WrappedImage;
             }
 
-            // 3. Auto Pause/Resume BGM & Audio when app goes to background
+            // 4. Auto Pause/Resume BGM & Audio when app goes to background
             var ctxList = [];
             var resumeCtxs = [];
             var resumeMedia = [];
@@ -1026,7 +1181,7 @@ jobs:
               else window.__ajResumeAudio();
             });
 
-            // 4. Hook Geolocation early to Native Google Fused LocationService
+            // 5. Hook Geolocation early to Native Google Fused LocationService
             window.__ajGpsWatchers = {};
             window.__ajSentFirstLock = false;
             var nextId = 100;
@@ -1101,159 +1256,184 @@ jobs:
 
           cat << 'EOF' >> app/src/main/assets/index.html
           <style>
-            /* Smooth Pro Polish */
+            /* World-Class Cyber-Glassmorphism UI Overhaul */
             * { -webkit-tap-highlight-color: transparent; }
-            html, body { scroll-behavior: smooth; background-color: #030812 !important; }
-            button { transition: transform 0.14s ease, box-shadow 0.2s ease, filter 0.2s ease !important; }
-            button:active { transform: scale(0.96) !important; }
+            html, body {
+              scroll-behavior: smooth;
+              background-color: #030812 !important;
+              font-variant-numeric: tabular-nums;
+              overscroll-behavior: none;
+            }
+            button {
+              transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.22s ease, filter 0.2s ease !important;
+              will-change: transform;
+            }
+            button:active { transform: scale(0.95) !important; filter: brightness(1.18); }
 
-            /* Cinematic ARISE Boot Intro */
+            /* Elevated Glass Cards & Neon Depth */
+            .card, [class*="card"], [class*="panel"], [class*="box"] {
+              backdrop-filter: blur(10px);
+              -webkit-backdrop-filter: blur(10px);
+              box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(0, 240, 255, 0.18);
+            }
+
+            /* Ultra-Cinematic ARISE Boot Intro (Real Logo + Energy Shockwave) */
             #ariseIntroOverlay {
               position: fixed; inset: 0; z-index: 999999;
-              background: radial-gradient(circle at 50% 42%, #071f38 0%, #030812 68%, #010308 100%);
+              background: radial-gradient(circle at 50% 42%, #092644 0%, #030812 65%, #010308 100%);
               display: flex; flex-direction: column; align-items: center; justify-content: center;
               font-family: monospace, sans-serif; color: #e0f7ff; overflow: hidden;
-              transition: opacity 0.55s ease, transform 0.55s ease;
+              transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
             }
-            #ariseIntroOverlay.hide { opacity: 0; transform: scale(1.06); pointer-events: none; }
+            #ariseIntroOverlay.hide { opacity: 0; transform: scale(1.12); pointer-events: none; }
             .arise-grid-bg {
-              position: absolute; inset: 0; opacity: 0.18;
-              background-image: linear-gradient(rgba(0,229,255,0.22) 1px, transparent 1px),
-                                linear-gradient(90deg, rgba(0,229,255,0.22) 1px, transparent 1px);
-              background-size: 34px 34px;
-              animation: ariseGridMove 6s linear infinite;
+              position: absolute; inset: 0; opacity: 0.22;
+              background-image: linear-gradient(rgba(0,229,255,0.26) 1px, transparent 1px),
+                                linear-gradient(90deg, rgba(0,229,255,0.26) 1px, transparent 1px);
+              background-size: 32px 32px;
+              animation: ariseGridMove 4.5s linear infinite;
             }
-            @keyframes ariseGridMove { from { transform: translateY(0); } to { transform: translateY(34px); } }
-            .arise-core-wrap { position: relative; width: 144px; height: 144px; display: flex; align-items: center; justify-content: center; }
+            @keyframes ariseGridMove { from { transform: translateY(0); } to { transform: translateY(32px); } }
+            .arise-scanline {
+              position: absolute; left: 0; right: 0; height: 3px; top: -10%;
+              background: linear-gradient(90deg, transparent, #00f7ff, transparent);
+              box-shadow: 0 0 22px #00f7ff;
+              animation: ariseScan 1.9s ease-in-out infinite;
+            }
+            @keyframes ariseScan { 0% { top: 5%; opacity: 0; } 50% { opacity: 0.9; } 100% { top: 95%; opacity: 0; } }
+            .arise-core-wrap { position: relative; width: 178px; height: 178px; display: flex; align-items: center; justify-content: center; }
+            .arise-shockwave {
+              position: absolute; inset: -16px; border-radius: 50%;
+              border: 2px solid rgba(0, 247, 255, 0.6);
+              animation: ariseShock 1.8s cubic-bezier(0.1, 0.8, 0.2, 1) infinite;
+            }
+            @keyframes ariseShock { 0% { transform: scale(0.75); opacity: 0.9; } 100% { transform: scale(1.42); opacity: 0; } }
             .arise-ring-1 {
               position: absolute; inset: 0; border-radius: 50%;
-              border: 2px solid transparent; border-top-color: #00f0ff; border-right-color: #00a8ff;
-              box-shadow: 0 0 24px rgba(0,240,255,0.55);
-              animation: ariseSpin 1.6s linear infinite;
+              border: 3px solid transparent; border-top-color: #00f7ff; border-right-color: #0099ff;
+              box-shadow: 0 0 28px rgba(0,240,255,0.65);
+              animation: ariseSpin 1.35s linear infinite;
             }
             .arise-ring-2 {
-              position: absolute; inset: 14px; border-radius: 50%;
-              border: 2px dashed rgba(0,229,255,0.65);
-              animation: ariseSpinRev 3.2s linear infinite;
+              position: absolute; inset: 12px; border-radius: 50%;
+              border: 2px dashed rgba(0,229,255,0.75);
+              animation: ariseSpinRev 2.8s linear infinite;
             }
-            .arise-emblem {
-              width: 82px; height: 82px; border-radius: 22px;
-              background: linear-gradient(145deg, #041d33, #003b5c);
-              border: 2px solid #00f0ff;
-              box-shadow: 0 0 30px rgba(0,240,255,0.7), inset 0 0 18px rgba(0,240,255,0.35);
+            .arise-logo-box {
+              width: 118px; height: 118px; border-radius: 26px; overflow: hidden;
+              border: 2px solid #00f7ff; background: #031120;
+              box-shadow: 0 0 38px rgba(0,247,255,0.75), inset 0 0 18px rgba(0,247,255,0.35);
+              animation: arisePulse 1.3s ease-in-out infinite;
               display: flex; align-items: center; justify-content: center;
-              font-size: 42px; font-weight: 900; color: #00f7ff; text-shadow: 0 0 16px #00f0ff;
-              animation: arisePulse 1.4s ease-in-out infinite;
             }
+            .arise-logo-box img { width: 100%; height: 100%; object-fit: cover; }
             @keyframes ariseSpin { to { transform: rotate(360deg); } }
             @keyframes ariseSpinRev { to { transform: rotate(-360deg); } }
-            @keyframes arisePulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+            @keyframes arisePulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
             .arise-sys-tag {
-              margin-top: 22px; font-size: 11px; letter-spacing: 3.5px; color: #5ce1ff;
-              text-transform: uppercase; opacity: 0.9;
+              margin-top: 24px; font-size: 11px; letter-spacing: 4px; color: #5ce1ff;
+              text-transform: uppercase; text-shadow: 0 0 10px rgba(0,240,255,0.6);
             }
             .arise-title {
-              margin-top: 8px; font-size: 40px; font-weight: 900; letter-spacing: 8px;
-              background: linear-gradient(180deg, #ffffff 0%, #6ef3ff 55%, #00aaff 100%);
+              margin-top: 6px; font-size: 44px; font-weight: 900; letter-spacing: 10px;
+              background: linear-gradient(180deg, #ffffff 0%, #72f5ff 55%, #009dff 100%);
               -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-              filter: drop-shadow(0 0 18px rgba(0,229,255,0.65));
+              filter: drop-shadow(0 0 20px rgba(0,229,255,0.75));
             }
-            .arise-sub { margin-top: 4px; font-size: 11px; letter-spacing: 2.8px; color: #8ad8f0; }
+            .arise-sub { margin-top: 4px; font-size: 11px; letter-spacing: 3px; color: #8ad8f0; }
             .arise-bar-wrap {
-              margin-top: 24px; width: 210px; height: 5px; border-radius: 99px;
-              background: rgba(0,229,255,0.16); overflow: hidden; border: 1px solid rgba(0,229,255,0.35);
+              margin-top: 24px; width: 226px; height: 6px; border-radius: 99px;
+              background: rgba(0,229,255,0.16); overflow: hidden; border: 1px solid rgba(0,229,255,0.4);
             }
             .arise-bar-fill {
-              height: 100%; width: 0%; background: linear-gradient(90deg, #0088ff, #00f7ff);
-              box-shadow: 0 0 12px #00f7ff; transition: width 0.25s ease;
+              height: 100%; width: 0%; background: linear-gradient(90deg, #0077ff, #00f7ff, #ffffff);
+              box-shadow: 0 0 14px #00f7ff; transition: width 0.28s ease;
             }
-            .arise-boot-txt { margin-top: 10px; font-size: 10px; color: #67b8d6; letter-spacing: 1.5px; }
+            .arise-boot-txt { margin-top: 10px; font-size: 10px; color: #7cd4f0; letter-spacing: 1.6px; }
 
             /* Biometric Security Lock Screen */
             #ariseLockOverlay {
               position: fixed; inset: 0; z-index: 999998;
-              background: rgba(2, 7, 16, 0.97); backdrop-filter: blur(16px);
+              background: radial-gradient(circle at 50% 35%, #071e36 0%, #02060f 75%);
+              backdrop-filter: blur(20px);
               display: none; flex-direction: column; align-items: center; justify-content: center;
               font-family: monospace, sans-serif; color: #e0f7ff; text-align: center; padding: 24px;
             }
             #ariseLockOverlay.open { display: flex; }
-            .arise-lock-icon {
-              width: 84px; height: 84px; border-radius: 50%;
-              border: 2px solid #00f0ff; background: rgba(0,229,255,0.1);
-              box-shadow: 0 0 28px rgba(0,229,255,0.45);
-              display: flex; align-items: center; justify-content: center; font-size: 38px;
+            .arise-lock-logo {
+              width: 96px; height: 96px; border-radius: 24px; overflow: hidden;
+              border: 2px solid #00f7ff; box-shadow: 0 0 32px rgba(0,247,255,0.55);
               margin-bottom: 18px;
             }
+            .arise-lock-logo img { width: 100%; height: 100%; object-fit: cover; }
             .arise-lock-btn {
-              margin-top: 20px; padding: 12px 26px; border-radius: 12px;
-              border: 1px solid #00f0ff; background: linear-gradient(135deg, #004e75, #0099cc);
-              color: #ffffff; font-weight: 800; font-size: 13px; letter-spacing: 1.5px;
-              box-shadow: 0 0 18px rgba(0,229,255,0.4);
+              margin-top: 22px; padding: 14px 28px; border-radius: 14px;
+              border: 1px solid #00f7ff; background: linear-gradient(135deg, #004e75, #00a2d6);
+              color: #ffffff; font-weight: 900; font-size: 13px; letter-spacing: 1.8px;
+              box-shadow: 0 0 22px rgba(0,229,255,0.5);
             }
 
-            /* Floating Pro Settings Trigger & Modal */
-            #ariseProFab {
-              position: fixed; bottom: 16px; right: 14px; z-index: 99990;
-              padding: 8px 13px; border-radius: 99px;
-              background: linear-gradient(135deg, rgba(4,24,44,0.95), rgba(0,72,108,0.95));
-              border: 1px solid rgba(0,240,255,0.7); color: #00f7ff;
-              font-family: monospace, sans-serif; font-size: 11px; font-weight: 800;
-              letter-spacing: 1px; box-shadow: 0 0 16px rgba(0,229,255,0.4);
-            }
-            #ariseProModal {
-              position: fixed; inset: 0; z-index: 99995;
-              background: rgba(2, 6, 14, 0.85); backdrop-filter: blur(8px);
-              display: none; align-items: center; justify-content: center; padding: 16px;
+            /* Integrated Pro Settings Card (Inside Settings Tab — Zero Overlap!) */
+            #ariseInlineProCard {
+              margin: 12px 0 14px 0; padding: 14px; border-radius: 14px;
+              background: linear-gradient(155deg, rgba(6,22,40,0.96), rgba(9,32,56,0.92));
+              border: 1px solid rgba(0,240,255,0.55);
+              box-shadow: 0 8px 26px rgba(0,0,0,0.5), 0 0 18px rgba(0,229,255,0.2);
               font-family: monospace, sans-serif; color: #e0f7ff;
-            }
-            #ariseProModal.open { display: flex; }
-            .arise-pro-card {
-              width: 100%; max-width: 380px; max-height: 85vh; overflow-y: auto;
-              border-radius: 16px; padding: 16px;
-              background: linear-gradient(160deg, #061426 0%, #091d36 100%);
-              border: 1px solid rgba(0,229,255,0.55); box-shadow: 0 0 28px rgba(0,229,255,0.28);
             }
             .arise-pro-row {
               display: flex; justify-content: space-between; align-items: center; gap: 10px;
               padding: 10px; margin-top: 8px; border-radius: 10px;
-              background: rgba(0,0,0,0.38); border: 1px solid rgba(0,229,255,0.2);
+              background: rgba(0,0,0,0.4); border: 1px solid rgba(0,229,255,0.22);
             }
             .arise-pro-btn {
-              padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800;
+              padding: 7px 12px; border-radius: 8px; font-size: 11px; font-weight: 800;
               border: 1px solid #00e5ff; background: #00344f; color: #00f7ff;
             }
-            .arise-pro-btn.on { background: #00e676; color: #021a0d; border-color: #00e676; }
+            .arise-pro-btn.on { background: #00e676; color: #021a0d; border-color: #00e676; box-shadow: 0 0 12px rgba(0,230,118,0.45); }
 
             /* Pro GPS HUD */
             #ajProGpsHud {
-              margin: 10px 0; padding: 10px; border-radius: 12px;
+              margin: 10px 0; padding: 12px; border-radius: 14px;
               background: linear-gradient(145deg, rgba(6,18,32,0.96), rgba(10,28,48,0.94));
-              border: 1px solid rgba(0,229,255,0.45); box-shadow: 0 0 14px rgba(0,229,255,0.18);
+              border: 1px solid rgba(0,229,255,0.5); box-shadow: 0 8px 24px rgba(0,0,0,0.45), 0 0 16px rgba(0,229,255,0.2);
               font-family: monospace, sans-serif; color: #e0f7ff;
             }
             .aj-hud-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; }
-            .aj-hud-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
+            .aj-hud-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 9px; }
             .aj-hud-box {
-              background: rgba(0,0,0,0.42); border: 1px solid rgba(0,229,255,0.22);
-              border-radius: 8px; padding: 6px 4px; text-align: center;
+              background: rgba(0,0,0,0.46); border: 1px solid rgba(0,229,255,0.24);
+              border-radius: 9px; padding: 7px 4px; text-align: center;
             }
-            .aj-hud-lbl { font-size: 9px; color: #7ec8e3; letter-spacing: 0.6px; }
-            .aj-hud-val { font-size: 13px; font-weight: 700; color: #00f0ff; margin-top: 2px; }
+            .aj-hud-lbl { font-size: 9px; color: #7ec8e3; letter-spacing: 0.7px; }
+            .aj-hud-val { font-size: 13px; font-weight: 800; color: #00f7ff; margin-top: 2px; }
             .aj-layer-btn {
-              flex: 1; padding: 5px 4px; font-size: 10px; font-weight: 700; border-radius: 6px;
-              border: 1px solid rgba(0,229,255,0.35); background: rgba(0,20,38,0.85); color: #9be7ff;
+              flex: 1; padding: 6px 4px; font-size: 10px; font-weight: 800; border-radius: 7px;
+              border: 1px solid rgba(0,229,255,0.38); background: rgba(0,20,38,0.88); color: #9be7ff;
             }
-            .aj-layer-btn.active { background: #00e5ff; color: #03131f; box-shadow: 0 0 10px rgba(0,229,255,0.6); }
+            .aj-layer-btn.active { background: #00f0ff; color: #03131f; box-shadow: 0 0 12px rgba(0,240,255,0.65); }
             .aj-bg-pill {
-              font-size: 10px; padding: 3px 8px; border-radius: 99px; font-weight: 700;
-              background: rgba(255,196,0,0.18); color: #ffd54f; border: 1px solid rgba(255,196,0,0.45);
+              font-size: 10px; padding: 3px 9px; border-radius: 99px; font-weight: 800;
+              background: rgba(255,196,0,0.18); color: #ffd54f; border: 1px solid rgba(255,196,0,0.5);
             }
-            .aj-bg-pill.live { background: rgba(0,230,118,0.18); color: #00e676; border-color: rgba(0,230,118,0.6); }
-            .aj-bg-pill.err { background: rgba(255,61,0,0.22); color: #ff6e40; border-color: rgba(255,61,0,0.65); }
+            .aj-bg-pill.live { background: rgba(0,230,118,0.2); color: #00e676; border-color: rgba(0,230,118,0.65); }
+            .aj-bg-pill.err { background: rgba(255,61,0,0.24); color: #ff6e40; border-color: rgba(255,61,0,0.7); }
           </style>
           <script>
           (function(){
-            // 1. Auto-dismiss old A.J Welcome Modal so user only sees ONE clean ARISE intro
+            // 1. Instant 0ms Tactile Haptic Engine on EVERY Button, Tab, Input & Slider
+            document.addEventListener('pointerdown', function(e) {
+              if (!window.AJNative || !window.AJNative.haptic) return;
+              var t = e.target;
+              if (!t || !t.closest) return;
+              if (t.closest('button, a, [role="button"], .tab, .nav-btn')) {
+                window.AJNative.haptic('click');
+              } else if (t.closest('input[type="range"], input[type="checkbox"], select')) {
+                window.AJNative.haptic('tick');
+              }
+            }, true);
+
+            // 2. Auto-dismiss old Welcome Modal
             function dismissOldWelcome() {
               document.querySelectorAll('button').forEach(function(b) {
                 var t = (b.textContent || '').toUpperCase();
@@ -1263,24 +1443,18 @@ jobs:
               });
             }
 
-            // 2. Play Store Safe Rebranding (Visible Text Nodes Only)
+            // 3. Real-Time Safety-Net Brand Cleaner
             var brandMap = [
               [/A\.J\.\s*SYSTEM\s*SHOP/gi, 'ARISE SYSTEM SHOP'],
               [/A\.J\s*BGM\s*JUKEBOX/gi, 'ARISE BGM JUKEBOX'],
+              [/A\.J\s*PROTOCOL/gi, 'ARISE PROTOCOL'],
               [/A\.J\s*LOG/gi, 'ARISE LOG'],
-              [/ENTER\s*A\.J/gi, 'ENTER ARISE'],
-              [/WELCOME\s*HUNTER\s*A\.J/gi, 'WELCOME HUNTER'],
+              [/WELCOME,\s*HUNTER\s*A\.J\.?/gi, 'WELCOME, HUNTER.'],
               [/SHADOW\s*MONARCH/gi, 'APEX SOVEREIGN'],
               [/MONARCH'S\s*DOMAIN/gi, "SOVEREIGN'S DOMAIN"],
-              [/MONARCH\s*EXAM/gi, 'SOVEREIGN EXAM'],
-              [/SHADOW\s*ARMY/gi, 'ELITE SQUAD'],
-              [/SHADOW\s*RUNNER/gi, 'APEX RUNNER'],
-              [/SHADOW\s*ANT\s*KING/gi, 'APEX PHANTOM'],
               [/\bIGRIS\b/g, 'VANGUARD'],
-              [/\bTANK\b/g, 'TITAN'],
-              [/\bIRON\b/g, 'AEGIS'],
-              [/\bTUSK\b/g, 'BERSERKER'],
-              [/\bBERU\b/g, 'PHANTOM']
+              [/\bBERU\b/g, 'PHANTOM'],
+              [/\bTUSK\b/g, 'BERSERKER']
             ];
             function applyPlayStoreBranding() {
               if (!document.body) return;
@@ -1300,7 +1474,7 @@ jobs:
               }
             }
 
-            // 3. Cinematic ARISE Boot Intro
+            // 4. Ultra-Cinematic ARISE Boot Intro (With Real ARISE Logo + Haptic Pulse)
             function playAriseIntro(force) {
               var allow = force || !(window.AJNative && window.AJNative.isIntroEnabled && !window.AJNative.isIntroEnabled());
               if (!allow) { dismissOldWelcome(); return; }
@@ -1310,52 +1484,55 @@ jobs:
               ov.id = 'ariseIntroOverlay';
               ov.innerHTML =
                 '<div class="arise-grid-bg"></div>' +
+                '<div class="arise-scanline"></div>' +
                 '<div class="arise-core-wrap">' +
+                  '<div class="arise-shockwave"></div>' +
                   '<div class="arise-ring-1"></div>' +
                   '<div class="arise-ring-2"></div>' +
-                  '<div class="arise-emblem">A</div>' +
+                  '<div class="arise-logo-box"><img src="arise_logo.png" alt="ARISE" onerror="this.style.display=\'none\'" /></div>' +
                 '</div>' +
                 '<div class="arise-sys-tag">[ SYSTEM AWAKENING ]</div>' +
                 '<div class="arise-title">ARISE</div>' +
                 '<div class="arise-sub">DAILY WORKOUT EXERCISE</div>' +
                 '<div class="arise-bar-wrap"><div id="ariseBarFill" class="arise-bar-fill"></div></div>' +
-                '<div id="ariseBootTxt" class="arise-boot-txt">INITIALIZING HARDWARE SENSORS...</div>';
+                '<div id="ariseBootTxt" class="arise-boot-txt">INITIALIZING BIOMETRIC &amp; SENSOR CORE...</div>';
               document.body.appendChild(ov);
+              if (window.AJNative && window.AJNative.haptic) window.AJNative.haptic('tick');
               var steps = [
-                [35, 'SYNCING GOOGLE FUSED GPS...'],
-                [70, 'CALIBRATING HARDWARE STEP ENGINE...'],
-                [100, 'SYSTEM READY — ARISE!']
+                [35, 'CALIBRATING GOOGLE FUSED GPS...'],
+                [72, 'ENGAGING HARDWARE STEP &amp; HAPTIC ENGINE...'],
+                [100, 'SYSTEM AWAKENED — ARISE!']
               ];
               steps.forEach(function(st, idx) {
                 setTimeout(function() {
                   var b = document.getElementById('ariseBarFill');
                   var t = document.getElementById('ariseBootTxt');
                   if (b) b.style.width = st[0] + '%';
-                  if (t) t.textContent = st[1];
+                  if (t) t.innerHTML = st[1];
                   if (idx === 1) { dismissOldWelcome(); applyPlayStoreBranding(); }
-                  if (idx === 2 && window.AJNative && window.AJNative.vibrate) window.AJNative.vibrate(25);
-                }, 380 * (idx + 1));
+                  if (idx === 2 && window.AJNative && window.AJNative.haptic) window.AJNative.haptic('success');
+                }, 420 * (idx + 1));
               });
               setTimeout(function() {
                 dismissOldWelcome();
                 ov.classList.add('hide');
-                setTimeout(function(){ ov.remove(); }, 600);
-              }, 1900);
+                setTimeout(function(){ ov.remove(); }, 650);
+              }, 2050);
             }
             window.__arisePlayIntro = playAriseIntro;
             if (document.body) playAriseIntro(false);
             else document.addEventListener('DOMContentLoaded', function(){ playAriseIntro(false); });
 
-            // 4. Biometric Lock Screen Overlay
+            // 5. Biometric Lock Screen Overlay (With Real ARISE Logo)
             function ensureLockScreen() {
               if (document.getElementById('ariseLockOverlay')) return;
               var lk = document.createElement('div');
               lk.id = 'ariseLockOverlay';
               lk.innerHTML =
-                '<div class="arise-lock-icon">🔒</div>' +
-                '<div style="font-size:20px;font-weight:900;letter-spacing:3px;color:#00f7ff;">ARISE LOCKED</div>' +
-                '<div id="ariseLockMsg" style="font-size:11px;color:#8ad8f0;margin-top:6px;">VERIFY FINGERPRINT / DEVICE LOCK TO ENTER</div>' +
-                '<button class="arise-lock-btn" onclick="window.AJNative && window.AJNative.triggerBiometric(\'Unlock ARISE System\')">AUTHENTICATE NOW</button>';
+                '<div class="arise-lock-logo"><img src="arise_logo.png" alt="ARISE" /></div>' +
+                '<div style="font-size:22px;font-weight:900;letter-spacing:4px;color:#00f7ff;">ARISE LOCKED</div>' +
+                '<div id="ariseLockMsg" style="font-size:11px;color:#8ad8f0;margin-top:8px;">VERIFY FINGERPRINT / FACE / PIN TO ENTER</div>' +
+                '<button class="arise-lock-btn" onclick="window.AJNative && window.AJNative.triggerBiometric(\'Unlock ARISE System\')">🔓 UNLOCK WITH BIOMETRICS</button>';
               document.body.appendChild(lk);
             }
             window.__ajShowLockScreen = function() {
@@ -1379,12 +1556,12 @@ jobs:
               if (window.AJNative && window.AJNative.isBioLockEnabled && window.AJNative.isBioLockEnabled()) {
                 window.__ajShowLockScreen();
               }
-            }, 2050);
+            }, 2200);
 
-            // 5. SAFELY Hide ONLY DEV TEST BAR & DEV MODE Button (NEVER hides QUEST tab!)
+            // 6. Hide ONLY DEV TEST BAR & DEV MODE Button
             function hideDevTestBar() {
               document.querySelectorAll('div, section').forEach(function(el) {
-                if (el.id === 'ariseProModal' || el.id === 'ajProGpsHud') return;
+                if (el.id === 'ariseInlineProCard' || el.id === 'ajProGpsHud') return;
                 var txt = (el.textContent || '').toUpperCase();
                 if (txt.indexOf('DEV TEST BAR') !== -1 && txt.indexOf('STRENGTH TRAINING') === -1 && txt.length < 320) {
                   el.style.display = 'none';
@@ -1392,20 +1569,18 @@ jobs:
               });
               document.querySelectorAll('button').forEach(function(b) {
                 var t = (b.textContent || '').toUpperCase();
-                if (t.indexOf('DEV MODE') !== -1) {
-                  b.style.display = 'none';
-                }
+                if (t.indexOf('DEV MODE') !== -1) b.style.display = 'none';
               });
             }
 
-            // 6. Sync Real Hardware Steps into QUEST tab + TRACK HUD
+            // 7. Sync Real Hardware Steps into QUEST tab + TRACK HUD + Settings Card
             var latestHwSteps = 0;
             window.__onAJNativeStep = function(cnt) {
               latestHwSteps = cnt || 0;
               var hudSteps = document.getElementById('ajHudSteps');
               if (hudSteps) hudSteps.textContent = String(latestHwSteps);
               var proSteps = document.getElementById('ariseProStepsVal');
-              if (proSteps) proSteps.textContent = latestHwSteps + ' steps';
+              if (proSteps) proSteps.textContent = latestHwSteps + ' steps (HW SENSOR)';
               document.querySelectorAll('div, span, p, small').forEach(function(el) {
                 if (el.children.length === 0 && el.textContent && /•\s*\d+\s*steps/i.test(el.textContent)) {
                   el.textContent = el.textContent.replace(/•\s*\d+\s*steps/i, '• ' + latestHwSteps + ' steps');
@@ -1413,14 +1588,13 @@ jobs:
               });
             };
             if (window.AJNative && window.AJNative.getSteps) {
-              setTimeout(function(){ window.__onAJNativeStep(window.AJNative.getSteps()); }, 800);
+              setTimeout(function(){ window.__onAJNativeStep(window.AJNative.getSteps()); }, 700);
             }
 
-            // 7. Haptic Feedback + Auto-Sync Reset & GPS Buttons
+            // 8. Auto-Sync START/STOP GPS & RESET Buttons
             document.addEventListener('click', function(e) {
               var btn = e.target && e.target.closest ? e.target.closest('button') : null;
               if (!btn || !window.AJNative) return;
-              if (window.AJNative.vibrate) window.AJNative.vibrate(14);
               var txt = (btn.textContent || '').toUpperCase();
               if (txt.indexOf('START PRO GPS') !== -1) {
                 window.__ajSentFirstLock = false;
@@ -1432,7 +1606,7 @@ jobs:
               }
             }, true);
 
-            // 8. Native Alarm Bridge
+            // 9. Native Alarm Bridge
             if (window.AJNative && window.saveToggleAlarm) {
               var origAlm = window.saveToggleAlarm;
               window.saveToggleAlarm = function () {
@@ -1451,8 +1625,8 @@ jobs:
               };
             }
 
-            // 9. Pro Control Center
-            function refreshProModal() {
+            // 10. Cleanly Embed ARISE PRO SECURITY & ENGINE Card inside Settings Tab (Zero Floating Overlap!)
+            function refreshProCard() {
               if (!window.AJNative) return;
               var bioOn = window.AJNative.isBioLockEnabled();
               var hapOn = window.AJNative.isHapticsEnabled();
@@ -1470,65 +1644,63 @@ jobs:
               setBtn('ariseIntBtn', intOn, 'ON', 'OFF');
               var locEl = document.getElementById('ariseBgLocBtn');
               if (locEl) {
-                locEl.textContent = bgLoc ? 'ALL TIME ✓' : 'ENABLE';
+                locEl.textContent = bgLoc ? 'ALL TIME ✓' : 'ALLOW ALL TIME';
                 locEl.classList.toggle('on', bgLoc);
               }
               var stpEl = document.getElementById('ariseProStepsVal');
-              if (stpEl) stpEl.textContent = (window.AJNative.getSteps() || 0) + (hwStp ? ' (HW SENSOR)' : ' (SOFT)');
+              if (stpEl) stpEl.textContent = (window.AJNative.getSteps() || 0) + (hwStp ? ' steps (HW SENSOR)' : ' steps');
             }
+            window.__ariseRefreshPro = refreshProCard;
 
-            function mountProCenter() {
-              if (document.getElementById('ariseProFab')) return;
-              var fab = document.createElement('button');
-              fab.id = 'ariseProFab';
-              fab.textContent = '⚙️ PRO';
-              fab.onclick = function() {
-                var m = document.getElementById('ariseProModal');
-                if (m) { m.classList.add('open'); refreshProModal(); }
-              };
-              document.body.appendChild(fab);
+            function mountInlineProSettings() {
+              if (document.getElementById('ariseInlineProCard')) { refreshProCard(); return; }
+              var alarmEl = document.getElementById('inAlarmTime');
+              if (!alarmEl) return;
+              var card = alarmEl.parentElement;
+              while (card && card.parentElement && card.textContent.toUpperCase().indexOf('ULTRA-LOUD ALARM') === -1) {
+                card = card.parentElement;
+              }
+              if (!card || !card.parentElement) return;
 
-              var modal = document.createElement('div');
-              modal.id = 'ariseProModal';
-              modal.innerHTML =
-                '<div class="arise-pro-card">' +
-                  '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-                    '<span style="font-size:14px;font-weight:900;color:#00f7ff;letter-spacing:1.5px;">⚡ ARISE PRO SETTINGS</span>' +
-                    '<button onclick="document.getElementById(\'ariseProModal\').classList.remove(\'open\')" style="background:none;border:none;color:#ff6e40;font-size:18px;font-weight:900;">✕</button>' +
-                  '</div>' +
-                  '<div class="arise-pro-row">' +
-                    '<div><div style="font-size:12px;font-weight:700;">🔒 Fingerprint / App Lock</div><div style="font-size:10px;color:#7ec8e3;">Biometric or PIN on app open</div></div>' +
-                    '<button id="ariseBioBtn" class="arise-pro-btn" onclick="if(window.AJNative){var n=!window.AJNative.isBioLockEnabled();window.AJNative.setBioLockEnabled(n);if(n)window.AJNative.triggerBiometric(\'Confirm Fingerprint Lock\');setTimeout(window.__ariseRefreshPro,200);}">OFF</button>' +
-                  '</div>' +
-                  '<div class="arise-pro-row">' +
-                    '<div><div style="font-size:12px;font-weight:700;">📍 Allow All The Time GPS</div><div style="font-size:10px;color:#7ec8e3;">Pocket & screen-off tracking</div></div>' +
-                    '<button id="ariseBgLocBtn" class="arise-pro-btn" onclick="window.AJNative && window.AJNative.requestBackgroundLocation()">ENABLE</button>' +
-                  '</div>' +
-                  '<div class="arise-pro-row">' +
-                    '<div><div style="font-size:12px;font-weight:700;">👟 Hardware Step Engine</div><div id="ariseProStepsVal" style="font-size:10px;color:#00e676;">0 steps</div></div>' +
-                    '<button class="arise-pro-btn" onclick="window.AJNative && window.AJNative.resetSteps();setTimeout(window.__ariseRefreshPro,200);">RESET</button>' +
-                  '</div>' +
-                  '<div class="arise-pro-row">' +
-                    '<div><div style="font-size:12px;font-weight:700;">📳 Haptic Touch Feedback</div><div style="font-size:10px;color:#7ec8e3;">Crisp vibration on button tap</div></div>' +
+              var pro = document.createElement('div');
+              pro.id = 'ariseInlineProCard';
+              pro.innerHTML =
+                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                  '<span style="font-size:13px;font-weight:900;color:#00f7ff;letter-spacing:1.4px;">⚡ ARISE PRO SECURITY &amp; ENGINE</span>' +
+                  '<span style="font-size:10px;color:#00e676;font-weight:800;">v4.0 ULTRA</span>' +
+                '</div>' +
+                '<div class="arise-pro-row">' +
+                  '<div><div style="font-size:12px;font-weight:700;">🔒 Fingerprint / Face / PIN Lock</div><div style="font-size:10px;color:#7ec8e3;">Biometric security on app open</div></div>' +
+                  '<button id="ariseBioBtn" class="arise-pro-btn" onclick="if(window.AJNative){var n=!window.AJNative.isBioLockEnabled();window.AJNative.setBioLockEnabled(n);if(n)window.AJNative.triggerBiometric(\'Confirm Fingerprint Lock\');setTimeout(window.__ariseRefreshPro,200);}">OFF</button>' +
+                '</div>' +
+                '<div class="arise-pro-row">' +
+                  '<div><div style="font-size:12px;font-weight:700;">📍 Background Location (All Time)</div><div style="font-size:10px;color:#7ec8e3;">Pocket &amp; screen-off GPS tracking</div></div>' +
+                  '<button id="ariseBgLocBtn" class="arise-pro-btn" onclick="window.AJNative && window.AJNative.requestBackgroundLocation()">ALLOW ALL TIME</button>' +
+                '</div>' +
+                '<div class="arise-pro-row">' +
+                  '<div><div style="font-size:12px;font-weight:700;">👟 Hardware Step Engine</div><div id="ariseProStepsVal" style="font-size:10px;color:#00e676;">0 steps</div></div>' +
+                  '<button class="arise-pro-btn" onclick="window.AJNative && window.AJNative.resetSteps();setTimeout(window.__ariseRefreshPro,200);">RESET</button>' +
+                '</div>' +
+                '<div class="arise-pro-row">' +
+                  '<div><div style="font-size:12px;font-weight:700;">📳 Tactile Haptic Feedback</div><div style="font-size:10px;color:#7ec8e3;">Flagship vibration on every tap</div></div>' +
+                  '<div style="display:flex;gap:5px;">' +
+                    '<button class="arise-pro-btn" onclick="window.AJNative && window.AJNative.haptic(\'success\')">TEST</button>' +
                     '<button id="ariseHapBtn" class="arise-pro-btn on" onclick="if(window.AJNative){window.AJNative.setHapticsEnabled(!window.AJNative.isHapticsEnabled());window.__ariseRefreshPro();}">ON</button>' +
                   '</div>' +
-                  '<div class="arise-pro-row">' +
-                    '<div><div style="font-size:12px;font-weight:700;">✨ Cinematic Boot Intro</div><div style="font-size:10px;color:#7ec8e3;">ARISE awakening animation</div></div>' +
-                    '<div style="display:flex;gap:5px;">' +
-                      '<button class="arise-pro-btn" onclick="document.getElementById(\'ariseProModal\').classList.remove(\'open\');window.__arisePlayIntro(true);">PLAY</button>' +
-                      '<button id="ariseIntBtn" class="arise-pro-btn on" onclick="if(window.AJNative){window.AJNative.setIntroEnabled(!window.AJNative.isIntroEnabled());window.__ariseRefreshPro();}">ON</button>' +
-                    '</div>' +
-                  '</div>' +
-                  '<div style="margin-top:12px;padding:8px;border-radius:8px;background:rgba(0,229,255,0.08);font-size:10px;color:#8ad8f0;line-height:1.45;">' +
-                    '<b>ARISE: Daily Workout Exercise v3.1 PRO</b><br/>' +
-                    'All workout, GPS, and step data stays 100% locally on your device. No personal data is sold or shared.' +
+                '</div>' +
+                '<div class="arise-pro-row">' +
+                  '<div><div style="font-size:12px;font-weight:700;">✨ Cinematic Awakening Intro</div><div style="font-size:10px;color:#7ec8e3;">Real logo holographic boot sequence</div></div>' +
+                  '<div style="display:flex;gap:5px;">' +
+                    '<button class="arise-pro-btn" onclick="window.__arisePlayIntro(true);">PLAY</button>' +
+                    '<button id="ariseIntBtn" class="arise-pro-btn on" onclick="if(window.AJNative){window.AJNative.setIntroEnabled(!window.AJNative.isIntroEnabled());window.__ariseRefreshPro();}">ON</button>' +
                   '</div>' +
                 '</div>';
-              document.body.appendChild(modal);
-              window.__ariseRefreshPro = refreshProModal;
+
+              card.parentElement.insertBefore(pro, card);
+              refreshProCard();
             }
 
-            // 10. Map Mode Switcher & Pro GPS HUD
+            // 11. Map Mode Switcher & Pro GPS HUD
             window.__ajSetMapMode = function(mode) {
               document.querySelectorAll('.aj-layer-btn').forEach(function(b) {
                 b.classList.toggle('active', b.getAttribute('data-mode') === mode);
@@ -1591,7 +1763,7 @@ jobs:
             function mountHud() {
               hideDevTestBar();
               applyPlayStoreBranding();
-              mountProCenter();
+              mountInlineProSettings();
               if (latestHwSteps > 0) window.__onAJNativeStep(latestHwSteps);
               if (document.getElementById('ajProGpsHud')) return;
               var proBtn = Array.from(document.querySelectorAll('button')).find(function(b) {
@@ -1609,10 +1781,10 @@ jobs:
               hud.id = 'ajProGpsHud';
               hud.innerHTML =
                 '<div class="aj-hud-row">' +
-                  '<span style="font-size:11px;font-weight:700;color:#00e5ff;">⚡ GOOGLE FUSED GPS PRO</span>' +
+                  '<span style="font-size:11px;font-weight:800;color:#00f7ff;">⚡ GOOGLE FUSED GPS PRO</span>' +
                   '<span id="ajBgPill" class="aj-bg-pill">BG GPS STANDBY</span>' +
                 '</div>' +
-                '<div class="aj-hud-row" style="margin-top:7px;">' +
+                '<div class="aj-hud-row" style="margin-top:8px;">' +
                   '<button class="aj-layer-btn active" data-mode="dark" onclick="window.__ajSetMapMode(\'dark\')">CYBER DARK</button>' +
                   '<button class="aj-layer-btn" data-mode="sat" onclick="window.__ajSetMapMode(\'sat\')">SATELLITE</button>' +
                   '<button class="aj-layer-btn" data-mode="street" onclick="window.__ajSetMapMode(\'street\')">STREET</button>' +
@@ -1626,11 +1798,11 @@ jobs:
                   '<div class="aj-hud-box"><div class="aj-hud-lbl">HW STEPS</div><div id="ajHudSteps" class="aj-hud-val">0</div></div>' +
                   '<div class="aj-hud-box"><div class="aj-hud-lbl">GPS PTS</div><div id="ajHudPts" class="aj-hud-val">0</div></div>' +
                 '</div>' +
-                '<div class="aj-hud-row" style="margin-top:7px;font-size:10px;color:#8ad8f0;">' +
+                '<div class="aj-hud-row" style="margin-top:8px;font-size:10px;color:#8ad8f0;">' +
                   '<span>LAT/LNG: <b id="ajHudCoords">Waiting for lock...</b></span>' +
                   '<div style="display:flex;gap:5px;">' +
-                    '<button id="ajTurnOnGpsBtn" onclick="window.AJNative && window.AJNative.openLocationSettings()" style="display:none;padding:3px 8px;border-radius:6px;border:1px solid #ff6e40;background:#4a1400;color:#ffab91;font-size:10px;font-weight:700;">TURN ON GPS</button>' +
-                    '<button onclick="if(window.AJNative){if(window.AJNative.isBgGpsRunning()){window.AJNative.stopBgGps();}else{window.__ajSentFirstLock=false;window.AJNative.startBgGps(true);}}" style="padding:3px 8px;border-radius:6px;border:1px solid #00e5ff;background:#00334d;color:#00f0ff;font-size:10px;font-weight:700;">BG ON/OFF</button>' +
+                    '<button id="ajTurnOnGpsBtn" onclick="window.AJNative && window.AJNative.openLocationSettings()" style="display:none;padding:4px 9px;border-radius:6px;border:1px solid #ff6e40;background:#4a1400;color:#ffab91;font-size:10px;font-weight:800;">TURN ON GPS</button>' +
+                    '<button onclick="if(window.AJNative){if(window.AJNative.isBgGpsRunning()){window.AJNative.stopBgGps();}else{window.__ajSentFirstLock=false;window.AJNative.startBgGps(true);}}" style="padding:4px 9px;border-radius:6px;border:1px solid #00f0ff;background:#00334d;color:#00f7ff;font-size:10px;font-weight:800;">BG ON/OFF</button>' +
                   '</div>' +
                 '</div>';
 
@@ -1640,7 +1812,7 @@ jobs:
                 if (st) { try { window.__onAJNativeGps(JSON.parse(st)); } catch(e) {} }
               }
             }
-            setInterval(mountHud, 900);
+            setInterval(mountHud, 800);
           })();
           </script>
           EOF
@@ -1648,8 +1820,8 @@ jobs:
       - name: Build Debug APK
         run: gradle assembleDebug
 
-      - name: Upload ARISE Pro APK
+      - name: Upload ARISE Ultra APK
         uses: actions/upload-artifact@v4
         with:
-          name: ARISE-Pro-Kotlin-APK
+          name: ARISE-Ultra-Kotlin-APK
           path: app/build/outputs/apk/debug/app-debug.apk
