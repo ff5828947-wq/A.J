@@ -117,6 +117,17 @@ jobs:
           </manifest>
           EOF
 
+          LOGO_FILE=$(find . -maxdepth 1 \( -iname "logo.png" -o -iname "logo.jpg" -o -iname "logo.jpeg" -o -iname "logo.webp" \) | head -n 1)
+          if [ -n "$LOGO_FILE" ]; then
+            mkdir -p app/src/main/res/mipmap-xxxhdpi
+            if command -v convert >/dev/null 2>&1; then
+              convert "$LOGO_FILE" -resize 512x512^ -gravity center -extent 512x512 PNG32:app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+            else
+              cp "$LOGO_FILE" app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+            fi
+            sed -i 's/android:label="A.J"/android:label="A.J" android:icon="@mipmap\/ic_launcher" android:roundIcon="@mipmap\/ic_launcher"/' app/src/main/AndroidManifest.xml
+          fi
+
           cat << 'EOF' > app/src/main/java/com/aj/system/AlarmReceiver.kt
           package com.aj.system
 
@@ -364,4 +375,3 @@ jobs:
         with:
           name: AJ-Native-Kotlin-APK
           path: app/build/outputs/apk/debug/app-debug.apk
-
