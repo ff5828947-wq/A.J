@@ -29,7 +29,7 @@ jobs:
             yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
           fi
 
-      - name: Generate ARISE Ultra Pro Max v1.3.0 Project (Android 12 - 16)
+      - name: Generate ARISE Ultra Pro Max v1.4.0 Project (Android 12 - 16)
         run: |
           mkdir -p app/src/main/java/com/aj/system app/src/main/assets app/src/main/res/values keystore-backup
 
@@ -76,8 +76,8 @@ jobs:
                   applicationId = "com.arise.dailyworkout.pro"
                   minSdk = 31
                   targetSdk = 36
-                  versionCode = 4
-                  versionName = "1.3.0"
+                  versionCode = 5
+                  versionName = "1.4.0"
               }
               signingConfigs {
                   create("release") {
@@ -242,22 +242,18 @@ jobs:
               }
 
               fun scheduleSnooze(context: Context, minutes: Int, label: String) {
-                  val triggerMs = System.currentTimeMillis() + (minutes * 60_000L)
-                  scheduleAt(context, triggerMs, "SNOOZE: $label")
+                  scheduleAt(context, System.currentTimeMillis() + (minutes * 60_000L), "SNOOZE: $label")
               }
 
               private fun scheduleAt(context: Context, triggerMs: Long, label: String) {
                   val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-                  val triggerIntent = Intent(context, AlarmReceiver::class.java).apply { putExtra("label", label) }
                   val triggerPi = PendingIntent.getBroadcast(
-                      context, REQ_MORNING, triggerIntent,
+                      context, REQ_MORNING, Intent(context, AlarmReceiver::class.java).apply { putExtra("label", label) },
                       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                   )
-                  val showIntent = Intent(context, MainActivity::class.java).apply {
-                      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                  }
                   val showPi = PendingIntent.getActivity(
-                      context, REQ_MORNING + 1, showIntent,
+                      context, REQ_MORNING + 1,
+                      Intent(context, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP },
                       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                   )
                   try {
@@ -405,10 +401,11 @@ jobs:
               }
 
               private fun buildNotification(label: String): Notification {
-                  val openIntent = Intent(this, MainActivity::class.java).apply {
-                      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                  }
-                  val openPi = PendingIntent.getActivity(this, 10, openIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                  val openPi = PendingIntent.getActivity(
+                      this, 10,
+                      Intent(this, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP },
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                  )
                   val stopPi = PendingIntent.getService(this, 11, Intent(this, AlarmForegroundService::class.java).apply { action = ACTION_STOP }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
                   val snoozePi = PendingIntent.getService(this, 12, Intent(this, AlarmForegroundService::class.java).apply { action = ACTION_SNOOZE; putExtra("label", label) }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
@@ -501,12 +498,15 @@ jobs:
 
               private fun scheduleSlot(context: Context, reqCode: Int, hour: Int, minute: Int, title: String, msg: String) {
                   val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-                  val intent = Intent(context, MissionReminderReceiver::class.java).apply {
-                      putExtra("title", title)
-                      putExtra("message", msg)
-                      putExtra("reqCode", reqCode)
-                  }
-                  val pi = PendingIntent.getBroadcast(context, reqCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                  val pi = PendingIntent.getBroadcast(
+                      context, reqCode,
+                      Intent(context, MissionReminderReceiver::class.java).apply {
+                          putExtra("title", title)
+                          putExtra("message", msg)
+                          putExtra("reqCode", reqCode)
+                      },
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                  )
                   val cal = Calendar.getInstance().apply {
                       set(Calendar.HOUR_OF_DAY, hour)
                       set(Calendar.MINUTE, minute)
@@ -533,15 +533,15 @@ jobs:
               fun showNotificationNow(context: Context, title: String, message: String, id: Int = 4099) {
                   val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                   val chId = "arise_mission_alerts_v1"
-                  val ch = NotificationChannel(chId, "ARISE Daily Mission Alerts", NotificationManager.IMPORTANCE_HIGH).apply {
+                  nm.createNotificationChannel(NotificationChannel(chId, "ARISE Daily Mission Alerts", NotificationManager.IMPORTANCE_HIGH).apply {
                       enableVibration(true)
                       vibrationPattern = longArrayOf(0, 250, 120, 250)
-                  }
-                  nm.createNotificationChannel(ch)
-                  val openIntent = Intent(context, MainActivity::class.java).apply {
-                      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                  }
-                  val pi = PendingIntent.getActivity(context, id, openIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                  })
+                  val pi = PendingIntent.getActivity(
+                      context, id,
+                      Intent(context, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP },
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                  )
                   val notif = Notification.Builder(context, chId)
                       .setSmallIcon(android.R.drawable.ic_dialog_info)
                       .setContentTitle(title)
@@ -612,7 +612,6 @@ jobs:
           import com.google.android.gms.location.LocationServices
           import com.google.android.gms.location.Priority
           import java.util.Locale
-          import kotlin.math.sqrt
 
           class LocationService : Service(), SensorEventListener {
               companion object {
@@ -635,7 +634,6 @@ jobs:
                   var onLocationUpdate: ((String) -> Unit)? = null
                   var onStatusUpdate: ((String, String) -> Unit)? = null
                   var onMilestoneSpeak: ((String) -> Unit)? = null
-                  var onStepIncrement: ((Int) -> Unit)? = null
 
                   fun getRouteJson(): String {
                       synchronized(routePoints) {
@@ -655,8 +653,8 @@ jobs:
               private lateinit var lm: LocationManager
               private lateinit var fusedClient: FusedLocationProviderClient
               private lateinit var sm: SensorManager
-              private var stepDetSensor: Sensor? = null
-              private var accelSensor: Sensor? = null
+              private var stepCounterSensor: Sensor? = null
+              private var runStepBase = -1f
 
               private var kalmanLat = Double.NaN
               private var kalmanLng = Double.NaN
@@ -667,10 +665,6 @@ jobs:
               private var smoothSpeedKmh = 0.0
               private var lastMoveMs = 0L
               private var lastNotifMs = 0L
-
-              private var lastHwStepMs = 0L
-              private var lastAccelStepMs = 0L
-              private var grav = 9.81
 
               private val locCallback = object : LocationCallback() {
                   override fun onLocationResult(result: LocationResult) {
@@ -708,6 +702,7 @@ jobs:
                       pointCount = 0
                       lastAnnounced500m = 0
                       runSteps = 0
+                      runStepBase = -1f
                       anchorLoc = null
                       kalmanLat = Double.NaN
                       kalmanLng = Double.NaN
@@ -726,7 +721,16 @@ jobs:
                   try { startForeground(NOTIF_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION) }
                   catch (e: Exception) { onStatusUpdate?.invoke("ERR", "FG: ${e.message}") }
 
-                  setupBackgroundStepSensors()
+                  // Hardware-only TYPE_STEP_COUNTER for background run tracking (ZERO shake false positives!)
+                  try {
+                      sm = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+                      sm.unregisterListener(this)
+                      stepCounterSensor = sm.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+                      val hasAct = checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED
+                      if (hasAct && stepCounterSensor != null) {
+                          sm.registerListener(this, stepCounterSensor, SensorManager.SENSOR_DELAY_UI)
+                      }
+                  } catch (_: Exception) {}
 
                   lm = getSystemService(Context.LOCATION_SERVICE) as LocationManager
                   val gpsOn = try { lm.isProviderEnabled(LocationManager.GPS_PROVIDER) } catch (_: Exception) { false }
@@ -756,50 +760,18 @@ jobs:
                   return START_STICKY
               }
 
-              private fun setupBackgroundStepSensors() {
-                  try {
-                      sm = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-                      sm.unregisterListener(this)
-                      stepDetSensor = sm.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
-                      accelSensor = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-                      val hasAct = checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED
-                      if (hasAct && stepDetSensor != null) sm.registerListener(this, stepDetSensor, SensorManager.SENSOR_DELAY_FASTEST)
-                      if (accelSensor != null) sm.registerListener(this, accelSensor, SensorManager.SENSOR_DELAY_GAME)
-                  } catch (_: Exception) {}
-              }
-
               override fun onSensorChanged(event: SensorEvent?) {
-                  if (event == null || !isRunning) return
-                  val now = System.currentTimeMillis()
-                  if (event.sensor.type == Sensor.TYPE_STEP_DETECTOR) {
-                      lastHwStepMs = now
-                      runSteps += 1
-                      onStepIncrement?.invoke(1)
-                      fuseStepDistance()
-                  } else if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-                      // Hand-held & pocket fallback if hardware step detector hasn't fired for > 1.8s
-                      if (now - lastHwStepMs < 1800L) return
-                      val ax = event.values[0].toDouble()
-                      val ay = event.values[1].toDouble()
-                      val az = event.values[2].toDouble()
-                      val mag = sqrt(ax * ax + ay * ay + az * az)
-                      grav = grav * 0.88 + mag * 0.12
-                      val linear = mag - grav
-                      if (linear > 1.55 && now - lastAccelStepMs > 320L) {
-                          lastAccelStepMs = now
-                          runSteps += 1
-                          onStepIncrement?.invoke(1)
-                          fuseStepDistance()
-                      }
+                  if (event == null || !isRunning || event.sensor.type != Sensor.TYPE_STEP_COUNTER) return
+                  val total = event.values[0]
+                  if (runStepBase < 0f || total < runStepBase) {
+                      runStepBase = total
                   }
-              }
-
-              override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-
-              private fun fuseStepDistance() {
+                  runSteps = (total - runStepBase).toInt().coerceAtLeast(0)
                   val stepEstM = runSteps * 0.72
                   if (stepEstM > totalDistM) totalDistM = stepEstM
               }
+
+              override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
               private fun applyKalman(lat: Double, lng: Double, acc: Float, timeMs: Long): Pair<Double, Double> {
                   val accuracy = acc.coerceAtLeast(3f).toDouble()
@@ -809,7 +781,7 @@ jobs:
                   }
                   val dtSec = ((timeMs - kalmanTimeMs) / 1000.0).coerceIn(0.1, 30.0)
                   kalmanTimeMs = timeMs
-                  kalmanVar += dtSec * 3.2 * 3.2
+                  kalmanVar += dtSec * 3.0 * 3.0
                   val k = kalmanVar / (kalmanVar + accuracy * accuracy)
                   kalmanLat += k * (lat - kalmanLat)
                   kalmanLng += k * (lng - kalmanLng)
@@ -823,9 +795,9 @@ jobs:
                   val (fLat, fLng) = if (isCached) Pair(rawLoc.latitude, rawLoc.longitude) else applyKalman(rawLoc.latitude, rawLoc.longitude, acc, nowMs)
 
                   val filtered = Location(rawLoc).apply { latitude = fLat; longitude = fLng; time = nowMs }
-                  var instantSpeedKmh = if (rawLoc.hasSpeed() && rawLoc.speed > 0.35f && rawLoc.speed < 13.5f) rawLoc.speed.toDouble() * 3.6 else 0.0
+                  var instantSpeedKmh = if (rawLoc.hasSpeed() && rawLoc.speed > 0.45f && rawLoc.speed < 13.0f) rawLoc.speed.toDouble() * 3.6 else 0.0
 
-                  if (!isCached && acc <= 45f) {
+                  if (!isCached && acc <= 32f) {
                       val anchor = anchorLoc
                       if (anchor == null) {
                           anchorLoc = filtered
@@ -836,12 +808,13 @@ jobs:
                           val d = anchor.distanceTo(filtered).toDouble()
                           val dtSec = ((nowMs - anchor.time) / 1000.0).coerceAtLeast(0.5)
                           val calcKmh = (d / dtSec) * 3.6
-                          val minStepDist = if (acc <= 15f) 1.8 else 2.8
+                          val minStepDist = if (acc <= 12f) 2.2 else 3.2
 
-                          if (d >= minStepDist && d <= 120.0 && calcKmh <= 42.0) {
+                          // Genuine movement check: rejects stationary GPS jitter completely
+                          if (d >= minStepDist && d <= 120.0 && calcKmh >= 1.2 && calcKmh <= 40.0) {
                               gpsDistM += d
                               if (gpsDistM > totalDistM) totalDistM = gpsDistM
-                              if (instantSpeedKmh < 0.5 && calcKmh > 0.6) instantSpeedKmh = calcKmh
+                              if (instantSpeedKmh < 0.6) instantSpeedKmh = calcKmh
                               lastMoveMs = nowMs
 
                               if (rawLoc.hasAltitude() && rawLoc.altitude > -50 && rawLoc.altitude < 6000) {
@@ -852,14 +825,6 @@ jobs:
                                   lastAlt = rawLoc.altitude
                               }
 
-                              // If GPS confirms genuine road movement but steps lagged behind, top up runSteps smoothly
-                              val gpsExpectedSteps = (gpsDistM / 0.76).toInt()
-                              if (gpsExpectedSteps > runSteps + 3 && calcKmh < 18.0) {
-                                  val diff = (gpsExpectedSteps - runSteps).coerceAtMost(6)
-                                  runSteps += diff
-                                  onStepIncrement?.invoke(diff)
-                              }
-
                               anchorLoc = filtered
                               pointCount++
                               addRoutePoint(fLat, fLng, instantSpeedKmh)
@@ -867,14 +832,14 @@ jobs:
                       }
                   }
 
-                  if (instantSpeedKmh > 0.4) {
+                  if (instantSpeedKmh > 0.6) {
                       smoothSpeedKmh = if (smoothSpeedKmh < 0.2) instantSpeedKmh else (smoothSpeedKmh * 0.55 + instantSpeedKmh * 0.45)
                       lastMoveMs = nowMs
-                  } else if (nowMs - lastMoveMs > 5000L) {
+                  } else if (nowMs - lastMoveMs > 4500L) {
                       smoothSpeedKmh = 0.0
                   }
 
-                  if (smoothSpeedKmh > maxSpeedKmh && smoothSpeedKmh < 38.0 && pointCount >= 2) maxSpeedKmh = smoothSpeedKmh
+                  if (smoothSpeedKmh > maxSpeedKmh && smoothSpeedKmh < 38.0 && pointCount >= 3) maxSpeedKmh = smoothSpeedKmh
 
                   val stepEstM = runSteps * 0.72
                   if (stepEstM > totalDistM) totalDistM = stepEstM
@@ -884,7 +849,7 @@ jobs:
                   val kcal = (totalDistM / 1000.0) * 65.0
                   val bearing = if (rawLoc.hasBearing()) rawLoc.bearing.toDouble() else 0.0
                   val alt = if (rawLoc.hasAltitude() && rawLoc.altitude > -50 && rawLoc.altitude < 6000) rawLoc.altitude else 0.0
-                  val paceMinKm = if (smoothSpeedKmh > 0.8) 60.0 / smoothSpeedKmh else if (avgSpeedKmh > 0.8) 60.0 / avgSpeedKmh else 0.0
+                  val paceMinKm = if (smoothSpeedKmh > 1.0) 60.0 / smoothSpeedKmh else if (avgSpeedKmh > 1.0) 60.0 / avgSpeedKmh else 0.0
                   val cadence = if (elapsedSec >= 5 && runSteps > 0) ((runSteps * 60.0) / elapsedSec).toInt().coerceAtMost(240) else 0
 
                   val currentHalfKm = (totalDistM / 500.0).toInt()
@@ -926,15 +891,16 @@ jobs:
               }
 
               private fun buildNotif(text: String): Notification {
-                  val openIntent = Intent(this, MainActivity::class.java).apply {
-                      flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                  }
-                  val pi = PendingIntent.getActivity(this, 1, openIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                  val openPi = PendingIntent.getActivity(
+                      this, 1,
+                      Intent(this, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP },
+                      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                  )
                   return Notification.Builder(this, CH_ID)
                       .setContentTitle(if (isVipTurbo) "👑 ARISE VIP TURBO GPS" else "⚡ ARISE KALMAN GPS ACTIVE")
                       .setContentText(text)
                       .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-                      .setContentIntent(pi)
+                      .setContentIntent(openPi)
                       .setOngoing(true)
                       .build()
               }
@@ -1018,11 +984,10 @@ jobs:
           import java.util.Calendar
           import java.util.Date
           import java.util.Locale
-          import kotlin.math.sqrt
 
           class MainActivity : FragmentActivity(), SensorEventListener, TextToSpeech.OnInitListener, PurchasesUpdatedListener {
               companion object {
-                  @Volatile var currentMapMode: String = "dark"
+                  @Volatile var currentMapMode: String = "sat"
                   const val VIP_PRODUCT_ID = "arise_vip_monthly"
               }
 
@@ -1032,12 +997,8 @@ jobs:
               private lateinit var sensorManager: SensorManager
               private var stepCounterSensor: Sensor? = null
               private var stepDetectorSensor: Sensor? = null
-              private var accelSensor: Sensor? = null
               private var hasHardwareSteps = false
-              private var lastHwStepMs = 0L
               private var todaySteps = 0
-              private var grav = 9.81
-              private var lastAccelStepMs = 0L
 
               private var fileCb: ValueCallback<Array<Uri>>? = null
               private var isUnlockedThisSession = false
@@ -1144,7 +1105,7 @@ jobs:
                                       val conn = (URL(targetUrl).openConnection() as HttpURLConnection).apply {
                                           connectTimeout = 8000
                                           readTimeout = 8000
-                                          setRequestProperty("User-Agent", "ARISESystemApp/1.3 (Android)")
+                                          setRequestProperty("User-Agent", "ARISESystemApp/1.4 (Android)")
                                       }
                                       if (conn.responseCode == 200) {
                                           val mime = conn.contentType?.substringBefore(";") ?: "image/png"
@@ -1191,12 +1152,6 @@ jobs:
                   }
                   LocationService.onMilestoneSpeak = { msg ->
                       if (isVipActive() && prefs.getBoolean("vip_voice_on", true)) speakCoach(msg)
-                  }
-                  LocationService.onStepIncrement = { delta ->
-                      // Only add from LocationService when Activity isn't already receiving direct HW ticks
-                      if (System.currentTimeMillis() - lastHwStepMs > 1200L) {
-                          addTodaySteps(delta)
-                      }
                   }
 
                   web.loadUrl("file:///android_asset/index.html")
@@ -1348,7 +1303,7 @@ jobs:
                   } catch (_: Exception) {}
               }
 
-              // --- Hand-Held + Pocket 3-Layer Hybrid Step Engine ---
+              // --- Pure Hardware Pedometer Engine (ZERO false shake steps!) ---
               private fun todayKey(): String = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
 
               private fun loadTodaySteps() {
@@ -1366,7 +1321,6 @@ jobs:
                   sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
                   stepCounterSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
                   stepDetectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
-                  accelSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
                   hasHardwareSteps = (stepCounterSensor != null || stepDetectorSensor != null)
               }
 
@@ -1375,21 +1329,11 @@ jobs:
                   val hasAct = checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED
                   if (hasAct) {
                       stepCounterSensor?.let { try { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) } catch (_: Exception) {} }
-                      stepDetectorSensor?.let { try { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_FASTEST) } catch (_: Exception) {} }
+                      // Use STEP_DETECTOR only when STEP_COUNTER is absent so there is zero double-counting
+                      if (stepCounterSensor == null) {
+                          stepDetectorSensor?.let { try { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_FASTEST) } catch (_: Exception) {} }
+                      }
                   }
-                  accelSensor?.let { try { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) } catch (_: Exception) {} }
-              }
-
-              private fun addTodaySteps(delta: Int) {
-                  if (delta <= 0) return
-                  val today = todayKey()
-                  if (prefs.getString("steps_day", "") != today) {
-                      todaySteps = 0
-                      prefs.edit().putString("steps_day", today).putFloat("step_counter_base", -1f).apply()
-                  }
-                  todaySteps += delta
-                  prefs.edit().putInt("steps_count", todaySteps).apply()
-                  emitStepsToWeb()
               }
 
               private fun emitStepsToWeb() {
@@ -1400,22 +1344,22 @@ jobs:
 
               override fun onSensorChanged(event: SensorEvent?) {
                   if (event == null) return
-                  val now = System.currentTimeMillis()
+                  val today = todayKey()
                   when (event.sensor.type) {
                       Sensor.TYPE_STEP_COUNTER -> {
                           val totalSinceBoot = event.values[0]
-                          val today = todayKey()
                           if (prefs.getString("steps_day", "") != today) {
                               prefs.edit().putString("steps_day", today).putFloat("step_counter_base", totalSinceBoot).putInt("steps_count", 0).apply()
                               todaySteps = 0
+                              emitStepsToWeb()
                           } else {
                               var base = prefs.getFloat("step_counter_base", -1f)
                               if (base < 0f || totalSinceBoot < base) {
                                   base = totalSinceBoot - todaySteps
                                   prefs.edit().putFloat("step_counter_base", base).apply()
                               }
-                              val calc = (totalSinceBoot - base).toInt()
-                              if (calc > todaySteps) {
+                              val calc = (totalSinceBoot - base).toInt().coerceAtLeast(0)
+                              if (calc != todaySteps) {
                                   todaySteps = calc
                                   prefs.edit().putInt("steps_count", todaySteps).apply()
                                   emitStepsToWeb()
@@ -1423,22 +1367,13 @@ jobs:
                           }
                       }
                       Sensor.TYPE_STEP_DETECTOR -> {
-                          lastHwStepMs = now
-                          addTodaySteps(1)
-                      }
-                      Sensor.TYPE_ACCELEROMETER -> {
-                          // Activates automatically if HW step detector hasn't ticked for > 1.8s (hand-held walking fix!)
-                          if (now - lastHwStepMs < 1800L) return
-                          val ax = event.values[0].toDouble()
-                          val ay = event.values[1].toDouble()
-                          val az = event.values[2].toDouble()
-                          val mag = sqrt(ax * ax + ay * ay + az * az)
-                          grav = grav * 0.88 + mag * 0.12
-                          val linear = mag - grav
-                          if (linear > 1.55 && now - lastAccelStepMs > 320L) {
-                              lastAccelStepMs = now
-                              addTodaySteps(1)
+                          if (prefs.getString("steps_day", "") != today) {
+                              todaySteps = 0
+                              prefs.edit().putString("steps_day", today).apply()
                           }
+                          todaySteps += 1
+                          prefs.edit().putInt("steps_count", todaySteps).apply()
+                          emitStepsToWeb()
                       }
                   }
               }
@@ -1517,7 +1452,6 @@ jobs:
                   LocationService.onLocationUpdate = null
                   LocationService.onStatusUpdate = null
                   LocationService.onMilestoneSpeak = null
-                  LocationService.onStepIncrement = null
                   try { sensorManager.unregisterListener(this) } catch (_: Exception) {}
                   try { tts?.stop(); tts?.shutdown() } catch (_: Exception) {}
                   try { billingClient?.endConnection() } catch (_: Exception) {}
@@ -2135,7 +2069,7 @@ jobs:
                   '<div class="arise-sub">DAILY WORKOUT EXERCISE • DAY ' + streak + ' STREAK</div>' +
                   '<div class="arise-bar-wrap"><div id="ariseBarFill" class="arise-bar-fill"></div></div>' +
                   '<div id="ariseBootTxt" class="arise-boot-txt">INITIALIZING KALMAN GPS &amp; SENSORS...</div>' +
-                  '<div class="arise-diag-row"><span class="arise-diag-pill">⚡ KALMAN GPS</span><span class="arise-diag-pill">👟 3X STEP ENGINE</span><span class="arise-diag-pill">⚔️ QUEST LIVE</span></div>' +
+                  '<div class="arise-diag-row"><span class="arise-diag-pill">⚡ KALMAN GPS</span><span class="arise-diag-pill">👟 HW PEDOMETER</span><span class="arise-diag-pill">⚔️ QUEST LIVE</span></div>' +
                 '</div>';
               document.body.appendChild(ov);
 
@@ -2200,7 +2134,7 @@ jobs:
 
               var steps = [
                 [35, 'CALIBRATING KALMAN GPS &amp; TACTICAL MAP...'],
-                [70, 'LOCKING 3-LAYER HAND-HELD STEP ENGINE...'],
+                [70, 'LOCKING HARDWARE PEDOMETER (ANTI-SHAKE)...'],
                 [100, isVip ? '👑 SOVEREIGN VIP AWAKENED — ARISE!' : 'ULTRA SYSTEM READY — ARISE!']
               ];
               steps.forEach(function(st, idx) {
@@ -2324,7 +2258,8 @@ jobs:
             }
 
             // =================================================================
-            // LIVE STEP + RUNNING QUEST (0 / 4000m + PROGRESS BAR) + UPPER CARD SYNC
+            // SAFE ZERO-CRASH STEP + RUNNING QUEST + UPPER CARD SYNC
+            // (NEVER destroys child <span> IDs so Calendar, Logs & Profile stay 100% intact!)
             // =================================================================
             var latestHwSteps = 0;
             var latestFusedDistM = 0;
@@ -2338,26 +2273,33 @@ jobs:
               var hudSteps = document.getElementById('ajHudSteps');
               if (hudSteps) hudSteps.textContent = String(latestHwSteps);
               var proSteps = document.getElementById('ariseProStepsVal');
-              if (proSteps) proSteps.textContent = latestHwSteps + ' steps (3X ENGINE)';
+              if (proSteps) proSteps.textContent = latestHwSteps + ' steps (HW PEDOMETER)';
 
-              // 1) Update "0.17 km • 237 steps" text
+              // 1) Pure leaf-only update for "0.00 km • 0 steps"
               document.querySelectorAll('div, span, p, small').forEach(function(el) {
                 if (el.children.length === 0 && el.textContent && /km\s*•\s*\d+\s*steps/i.test(el.textContent)) {
                   el.textContent = distKmStr + ' km • ' + latestHwSteps + ' steps';
                 }
               });
 
-              // 2) Update "0 / 4000m" (even if split across child <span> elements!) AND fill its progress bar
+              // 2) Safe non-destructive update for "0 / 4000m" + progress bar
               var allEls = document.querySelectorAll('div, span, p');
               for (var i = 0; i < allEls.length; i++) {
                 var el = allEls[i];
+                if (el.id === 'ajProGpsHud' || el.closest('#ajProGpsHud')) continue;
                 var t = (el.textContent || '').trim();
                 var m = t.match(/^(\d+)\s*\/\s*(\d+)\s*m$/i);
-                if (m && parseInt(m[2], 10) >= 1000 && el.children.length <= 2) {
+                if (m && parseInt(m[2], 10) >= 1000) {
                   var goalM = parseInt(m[2], 10);
                   var curM = Math.min(distIntM, goalM);
-                  el.textContent = curM + ' / ' + goalM + 'm';
-                  // Walk up to find the RUNNING quest row and fill its progress bar
+                  if (el.children.length === 0) {
+                    el.textContent = curM + ' / ' + goalM + 'm';
+                  } else {
+                    var c0 = el.children[0];
+                    if (c0 && c0.children.length === 0 && /^\d+$/.test((c0.textContent || '').trim())) {
+                      c0.textContent = String(curM);
+                    }
+                  }
                   var row = el.parentElement;
                   for (var up = 0; up < 4 && row; up++) {
                     if ((row.textContent || '').toUpperCase().indexOf('RUNNING') !== -1) {
@@ -2368,7 +2310,6 @@ jobs:
                         var h = parseFloat(cs.height || '0');
                         if (h >= 2 && h <= 14 && bars[b].parentElement && bars[b].parentElement.children.length === 1) {
                           bars[b].style.width = pct;
-                          bars[b].style.background = 'linear-gradient(90deg, #0077ff, #00f7ff, #00e676)';
                           break;
                         }
                       }
@@ -2381,7 +2322,6 @@ jobs:
             }
 
             function syncUpperTelemetryCard(d) {
-              // Syncs the original upper "PRO ROUTE & TELEMETRY" card so SPEED/PACE/MAX SPD/ALT never stay 0.0
               var boxes = document.querySelectorAll('div');
               for (var i = 0; i < boxes.length; i++) {
                 var box = boxes[i];
@@ -2389,7 +2329,7 @@ jobs:
                 var txt = (box.textContent || '').toUpperCase();
                 if (txt.length > 60 || box.children.length < 2) continue;
                 var valEl = box.children[1];
-                if (!valEl) continue;
+                if (!valEl || valEl.children.length > 0) continue;
                 if (txt.indexOf('SPEED') !== -1 && txt.indexOf('MAX') === -1 && txt.indexOf('KM/H') !== -1) {
                   valEl.textContent = (d.spd || 0).toFixed(1);
                 } else if (txt.indexOf('PACE') !== -1 && txt.indexOf('MIN/KM') !== -1) {
@@ -2409,8 +2349,7 @@ jobs:
             if (window.AJNative && window.AJNative.getSteps) {
               setTimeout(function(){ window.__onAJNativeStep(window.AJNative.getSteps()); }, 600);
             }
-            // Keep Quest RUNNING bar synced even if index.html re-renders
-            setInterval(syncQuestDistanceAndSteps, 1500);
+            setInterval(syncQuestDistanceAndSteps, 1800);
 
             if (window.AJNative && window.saveToggleAlarm) {
               var origAlm = window.saveToggleAlarm;
@@ -2479,7 +2418,7 @@ jobs:
               var almHlth = document.getElementById('ariseAlarmHealthBtn');
               if (almHlth) { var ok = exAlm && batOk; almHlth.textContent = ok ? 'OPTIMIZED ✓' : (exAlm ? 'BATTERY FIX' : 'ALLOW ALARM'); almHlth.classList.toggle('on', ok); almHlth.classList.toggle('warn', !ok); }
               var stopRow = document.getElementById('ariseStopAlarmRow'); if (stopRow) stopRow.style.display = ringing ? 'flex' : 'none';
-              var stpEl = document.getElementById('ariseProStepsVal'); if (stpEl) stpEl.textContent = (window.AJNative.getSteps() || 0) + ' steps (3X ENGINE)';
+              var stpEl = document.getElementById('ariseProStepsVal'); if (stpEl) stpEl.textContent = (window.AJNative.getSteps() || 0) + ' steps (HW PEDOMETER)';
               var strEl = document.getElementById('ariseStreakVal'); if (strEl && window.AJNative.getStreakDays) strEl.textContent = 'DAY ' + window.AJNative.getStreakDays();
               var watEl = document.getElementById('ariseWaterVal'); if (watEl) watEl.textContent = getTodayWater() + ' / 8';
             }
@@ -2503,13 +2442,13 @@ jobs:
 
               var pro = document.createElement('div'); pro.id = 'ariseInlineProCard';
               pro.innerHTML =
-                '<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:13px;font-weight:900;color:#00f7ff;letter-spacing:1.4px;">⚡ ARISE ULTRA PRO MAX ENGINE</span><span style="font-size:10px;color:#00e676;font-weight:800;">v1.3.0 RELEASE</span></div>' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:13px;font-weight:900;color:#00f7ff;letter-spacing:1.4px;">⚡ ARISE ULTRA PRO MAX ENGINE</span><span style="font-size:10px;color:#00e676;font-weight:800;">v1.4.0 RELEASE</span></div>' +
                 '<div id="ariseStopAlarmRow" class="arise-pro-row" style="display:none;border-color:#ff6e40;background:rgba(90,15,0,0.5);"><div><div style="font-size:12px;font-weight:800;color:#ffab91;">🔔 MORNING ALARM RINGING</div><div style="font-size:10px;color:#ffccbc;">Tap to silence active alarm</div></div><button class="arise-pro-btn warn" onclick="window.AJNative && window.AJNative.stopRingingAlarm();setTimeout(window.__ariseRefreshPro,250);">STOP</button></div>' +
                 '<div class="arise-pro-row"><div><div style="font-size:12px;font-weight:700;">⚔️ Daily Mission Alerts (7:30 AM &amp; PM)</div><div style="font-size:10px;color:#7ec8e3;">Auto "Complete Your Mission" reminders</div></div><div style="display:flex;gap:5px;"><button class="arise-pro-btn" onclick="window.AJNative && window.AJNative.testMissionAlert();">TEST</button><button id="ariseMisBtn" class="arise-pro-btn on" onclick="if(window.AJNative){window.AJNative.setMissionAlertsOn(!window.AJNative.isMissionAlertsOn());window.__ariseRefreshPro();}">ON</button></div></div>' +
                 '<div class="arise-pro-row"><div><div style="font-size:12px;font-weight:700;">⏰ Doze-Proof Alarm Reliability</div><div style="font-size:10px;color:#7ec8e3;">Set Battery Unrestricted so alarm never misses</div></div><button id="ariseAlarmHealthBtn" class="arise-pro-btn warn" onclick="if(window.AJNative){if(!window.AJNative.canScheduleExactAlarm()){window.AJNative.openExactAlarmSettings();}else{window.AJNative.openBatterySettings();}}">BATTERY FIX</button></div>' +
                 '<div class="arise-pro-row"><div><div style="font-size:12px;font-weight:700;">🔒 Fingerprint / Face / PIN Lock</div><div style="font-size:10px;color:#7ec8e3;">Biometric security on app open</div></div><button id="ariseBioBtn" class="arise-pro-btn" onclick="if(window.AJNative){var n=!window.AJNative.isBioLockEnabled();window.AJNative.setBioLockEnabled(n);if(n)window.AJNative.triggerBiometric(\'Confirm Fingerprint Lock\');setTimeout(window.__ariseRefreshPro,200);}">OFF</button></div>' +
                 '<div class="arise-pro-row"><div><div style="font-size:12px;font-weight:700;">📍 Background Location (All Time)</div><div style="font-size:10px;color:#7ec8e3;">Pocket &amp; screen-off GPS tracking</div></div><button id="ariseBgLocBtn" class="arise-pro-btn" onclick="window.AJNative && window.AJNative.requestBackgroundLocation()">ALLOW ALL TIME</button></div>' +
-                '<div class="arise-pro-row"><div><div style="font-size:12px;font-weight:700;">👟 3-Layer Hybrid Step Engine</div><div id="ariseProStepsVal" style="font-size:10px;color:#00e676;">0 steps</div></div><button class="arise-pro-btn" onclick="window.AJNative && window.AJNative.resetSteps();setTimeout(window.__ariseRefreshPro,200);">RESET</button></div>' +
+                '<div class="arise-pro-row"><div><div style="font-size:12px;font-weight:700;">👟 Hardware Pedometer (Anti-Shake)</div><div id="ariseProStepsVal" style="font-size:10px;color:#00e676;">0 steps</div></div><button class="arise-pro-btn" onclick="window.AJNative && window.AJNative.resetSteps();setTimeout(window.__ariseRefreshPro,200);">RESET</button></div>' +
                 '<div class="arise-pro-row"><div><div style="font-size:12px;font-weight:700;">📳 Taptic Haptic Feel</div><div style="font-size:10px;color:#7ec8e3;">Tap to switch SOFT / CRISP / OFF</div></div><button id="ariseHapBtn" class="arise-pro-btn on" onclick="if(window.AJNative){window.AJNative.cycleHapticMode();window.__ariseRefreshPro();}">SOFT</button></div>' +
                 '<div class="arise-pro-row"><div><div style="font-size:12px;font-weight:700;">✨ Ultra Cinematic Awakening Intro</div><div style="font-size:10px;color:#7ec8e3;">Warp starfield &amp; glitch-reveal sequence</div></div><div style="display:flex;gap:5px;"><button class="arise-pro-btn" onclick="window.__arisePlayIntro(true);">PLAY</button><button id="ariseIntBtn" class="arise-pro-btn on" onclick="if(window.AJNative){window.AJNative.setIntroEnabled(!window.AJNative.isIntroEnabled());window.__ariseRefreshPro();}">ON</button></div></div>';
 
@@ -2766,7 +2705,7 @@ jobs:
                   '<div class="aj-hud-box"><div class="aj-hud-lbl">PACE</div><div id="ajHudPace" class="aj-hud-val">--:-- /km</div></div>' +
                   '<div class="aj-hud-box"><div class="aj-hud-lbl">CLIMB</div><div id="ajHudElev" class="aj-hud-val">+0 m</div></div>' +
                   '<div class="aj-hud-box"><div class="aj-hud-lbl">COMPASS</div><div id="ajHudComp" class="aj-hud-val">N 0°</div></div>' +
-                  '<div class="aj-hud-box"><div class="aj-hud-lbl">3X STEPS</div><div id="ajHudSteps" class="aj-hud-val">0</div></div>' +
+                  '<div class="aj-hud-box"><div class="aj-hud-lbl">HW STEPS</div><div id="ajHudSteps" class="aj-hud-val">0</div></div>' +
                 '</div>' +
                 '<div class="aj-hud-row" style="margin-top:8px;font-size:10px;color:#8ad8f0;">' +
                   '<span>LAT/LNG: <b id="ajHudCoords">Waiting for lock...</b> (<span id="ajHudPts">0</span> pts)</span>' +
