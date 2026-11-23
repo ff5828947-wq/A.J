@@ -1499,7 +1499,7 @@ jobs:
           with open(path, "w", encoding="utf-8") as f:
               f.write(html)
           PYEOF
-          cat << 'EOF' >> app/src/main/assets/index.html
+                    cat << 'EOF' >> app/src/main/assets/index.html
           <style>
             * { -webkit-tap-highlight-color: transparent; }
             html { background-color: #030812 !important; overflow-y: auto !important; height: auto !important; min-height: 100% !important; transition: filter 0.25s ease; }
@@ -1682,13 +1682,13 @@ jobs:
               font-family: monospace, sans-serif; color: #e0f7ff;
             }
             .aj-hud-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; }
-            .aj-hud-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 9px; }
+            .aj-hud-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 9px; }
             .aj-hud-box {
               background: rgba(0,0,0,0.46); border: 1px solid rgba(0,229,255,0.24);
-              border-radius: 9px; padding: 7px 4px; text-align: center;
+              border-radius: 9px; padding: 6px 3px; text-align: center;
             }
-            .aj-hud-lbl { font-size: 9px; color: #7ec8e3; letter-spacing: 0.7px; }
-            .aj-hud-val { font-size: 13px; font-weight: 800; color: #00f7ff; margin-top: 2px; }
+            .aj-hud-lbl { font-size: 8.5px; color: #7ec8e3; letter-spacing: 0.5px; }
+            .aj-hud-val { font-size: 12px; font-weight: 800; color: #00f7ff; margin-top: 2px; }
             .aj-layer-btn {
               flex: 1; padding: 6px 4px; font-size: 10px; font-weight: 800; border-radius: 7px;
               border: 1px solid rgba(0,229,255,0.38); background: rgba(0,20,38,0.88); color: #9be7ff;
@@ -1700,6 +1700,31 @@ jobs:
             }
             .aj-bg-pill.live { background: rgba(0,230,118,0.2); color: #00e676; border-color: rgba(0,230,118,0.65); }
             .aj-bg-pill.err { background: rgba(255,61,0,0.24); color: #ff6e40; border-color: rgba(255,61,0,0.7); }
+
+            /* 2ND REAL LIVE MAP CANVAS */
+            #ajRealMapWrap {
+              position: relative; width: 100%; height: 210px; margin-top: 10px;
+              border-radius: 12px; overflow: hidden;
+              border: 1.5px solid rgba(0,240,255,0.55); background: #05101d;
+            }
+            #ajRealMapCanvas { width: 100%; height: 100%; display: block; }
+            .aj-map-ctrl {
+              position: absolute; right: 8px; bottom: 8px; display: flex; gap: 5px;
+            }
+            .aj-map-btn {
+              width: 30px; height: 30px; border-radius: 8px; border: 1px solid #00f0ff;
+              background: rgba(3, 14, 28, 0.88); color: #00f7ff; font-size: 13px; font-weight: 900;
+            }
+            .aj-map-tag {
+              position: absolute; left: 8px; top: 8px; padding: 3px 8px; border-radius: 6px;
+              background: rgba(3, 14, 28, 0.85); border: 1px solid rgba(0,240,255,0.45);
+              font-size: 9px; font-weight: 800; color: #00f7ff;
+            }
+
+            /* QUICK WATER + REST TIMER BAR */
+            #ariseQuickBar {
+              display: flex; gap: 6px; margin-top: 10px;
+            }
           </style>
           <script>
           (function(){
@@ -1747,13 +1772,11 @@ jobs:
             }
             window.__ariseSetLiveTheme = applyUniversalTheme;
 
-            // Restore saved theme on boot
             try {
               var savedTheme = localStorage.getItem('arise_live_theme_v2');
               if (savedTheme) applyUniversalTheme(savedTheme);
             } catch(e) {}
 
-            // REMOVE DOMAIN TAB & DOMAIN PANELS CLEANLY
             function removeDomainSystem() {
               document.querySelectorAll('button, a, [role="tab"], .nav-btn, .tab').forEach(function(el) {
                 var txt = (el.textContent || '').trim().toUpperCase();
@@ -1763,9 +1786,119 @@ jobs:
               });
             }
 
-            // ANTI-AUTO-COUNT AI STABILIZER + MANUAL REP PAD
+            // 2ND REAL LIVE MAP ENGINE (REAL TILES + LIVE ROUTE POLYLINE + ZOOM)
+            var realMapZoom = 16;
+            var realMapMode = 'dark';
+            var realMapLat = 21.84308;
+            var realMapLng = 88.11935;
+            var realMapPath = [];
+            var tileCache = {};
+
+            function latLngToTile(lat, lng, z) {
+              var n = Math.pow(2, z);
+              var x = (lng + 180) / 360 * n;
+              var rad = lat * Math.PI / 180;
+              var y = (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * n;
+              return { x: x, y: y };
+            }
+
+            function drawRealLiveMap() {
+              var cvs = document.getElementById('ajRealMapCanvas');
+              if (!cvs) return;
+              var w = cvs.clientWidth || 320;
+              var h = cvs.clientHeight || 210;
+              if (cvs.width !== w || cvs.height !== h) { cvs.width = w; cvs.height = h; }
+              var c = cvs.getContext('2d');
+              c.fillStyle = '#05101d';
+              c.fillRect(0, 0, w, h);
+
+              var center = latLngToTile(realMapLat, realMapLng, realMapZoom);
+              var cx = Math.floor(center.x), cy = Math.floor(center.y);
+              var offX = (center.x - cx) * 256, offY = (center.y - cy) * 256;
+
+              for (var dx = -1; dx <= 1; dx++) {
+                for (var dy = -1; dy <= 1; dy++) {
+                  var tx = cx + dx, ty = cy + dy;
+                  var key = realMapMode + '_' + realMapZoom + '_' + tx + '_' + ty;
+                  var drawX = Math.round(w / 2 - offX + dx * 256);
+                  var drawY = Math.round(h / 2 - offY + dy * 256);
+                  var img = tileCache[key];
+                  if (!img) {
+                    img = new Image();
+                    img.onload = function() { drawRealLiveMap(); };
+                    img.src = 'https://tile.openstreetmap.org/' + realMapZoom + '/' + tx + '/' + ty + '.png?m=' + realMapMode;
+                    tileCache[key] = img;
+                  }
+                  if (img.complete && img.naturalWidth > 0) {
+                    c.drawImage(img, drawX, drawY, 256, 256);
+                  }
+                }
+              }
+
+              // Draw live route polyline
+              if (realMapPath.length > 1) {
+                c.save();
+                c.strokeStyle = '#00f7ff';
+                c.lineWidth = 3.5;
+                c.shadowColor = '#00f7ff';
+                c.shadowBlur = 8;
+                c.beginPath();
+                for (var i = 0; i < realMapPath.length; i++) {
+                  var pt = latLngToTile(realMapPath[i].lat, realMapPath[i].lng, realMapZoom);
+                  var px = w / 2 + (pt.x - center.x) * 256;
+                  var py = h / 2 + (pt.y - center.y) * 256;
+                  if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
+                }
+                c.stroke();
+                c.restore();
+              }
+
+              // Draw pulsing live hunter marker at center
+              c.save();
+              c.fillStyle = 'rgba(0, 247, 255, 0.28)';
+              c.beginPath(); c.arc(w / 2, h / 2, 16, 0, Math.PI * 2); c.fill();
+              c.fillStyle = '#00e676';
+              c.strokeStyle = '#ffffff';
+              c.lineWidth = 2.5;
+              c.beginPath(); c.arc(w / 2, h / 2, 6.5, 0, Math.PI * 2); c.fill(); c.stroke();
+              c.restore();
+            }
+
+            window.__ajZoomRealMap = function(delta) {
+              realMapZoom = Math.max(13, Math.min(18, realMapZoom + delta));
+              drawRealLiveMap();
+            };
+            window.__ajRecenterRealMap = function() {
+              drawRealLiveMap();
+              if (window.AJNative && window.AJNative.haptic) window.AJNative.haptic('tap');
+            };
+
+            // MANUAL REP PAD + QUICK REST TIMER
             var manEx = 'pushups';
             var manCount = 0;
+            var quickRestLeft = 0, quickRestIv = null;
+            window.__ariseQuickRest = function() {
+              var btn = document.getElementById('ariseQuickRestBtn');
+              if (quickRestIv) {
+                clearInterval(quickRestIv); quickRestIv = null; quickRestLeft = 0;
+                if (btn) btn.textContent = '⏱️ 60s REST';
+                return;
+              }
+              quickRestLeft = 60;
+              if (btn) btn.textContent = '⏱️ 60s';
+              quickRestIv = setInterval(function() {
+                quickRestLeft--;
+                if (btn) btn.textContent = '⏱️ ' + quickRestLeft + 's';
+                if (quickRestLeft <= 0) {
+                  clearInterval(quickRestIv); quickRestIv = null;
+                  if (btn) btn.textContent = '✅ GO!';
+                  if (window.AJNative && window.AJNative.haptic) window.AJNative.haptic('success');
+                  if (window.AJNative && window.AJNative.speak) window.AJNative.speak('Rest complete. Next set, Arise!');
+                  setTimeout(function(){ if (btn) btn.textContent = '⏱️ 60s REST'; }, 2500);
+                }
+              }, 1000);
+            };
+
             window.__ariseSetManEx = function(ex) {
               manEx = ex;
               document.querySelectorAll('[data-man-ex]').forEach(function(b) {
@@ -1787,13 +1920,8 @@ jobs:
             };
             window.__ariseManSave = function() {
               if (manCount <= 0) return;
-              // Sync reps into the app's existing quest buttons or localStorage
               var added = false;
-              var targets = {
-                pushups: ['PUSH-UP', 'PUSHUP'],
-                situps:  ['SIT-UP', 'SITUP'],
-                squats:  ['SQUAT']
-              }[manEx] || ['PUSH'];
+              var targets = { pushups: ['PUSH-UP','PUSHUP'], situps: ['SIT-UP','SITUP'], squats: ['SQUAT'] }[manEx] || ['PUSH'];
               document.querySelectorAll('button').forEach(function(b) {
                 if (added) return;
                 var txt = (b.textContent || '').toUpperCase();
@@ -1806,11 +1934,6 @@ jobs:
                   }
                 }
               });
-              try {
-                var key = 'arise_manual_log_' + manEx;
-                var prev = parseInt(localStorage.getItem(key) || '0', 10);
-                localStorage.setItem(key, String(prev + manCount));
-              } catch(e) {}
               if (window.AJNative && window.AJNative.haptic) window.AJNative.haptic('success');
               var st = document.getElementById('ariseManSavedMsg');
               if (st) {
@@ -1824,7 +1947,6 @@ jobs:
 
             function mountManualPad() {
               if (document.getElementById('ariseManualPadCard')) return;
-              var camEl = document.querySelector('video, canvas[id*="pose"], canvas[id*="ai"], button');
               var anchor = null;
               document.querySelectorAll('button').forEach(function(b) {
                 var t = (b.textContent || '').toUpperCase();
@@ -1839,7 +1961,7 @@ jobs:
               card.innerHTML =
                 '<div style="display:flex;justify-content:space-between;align-items:center;">' +
                   '<span style="font-size:12.5px;font-weight:900;color:#00f7ff;letter-spacing:1.2px;">👆 MANUAL REP COUNTER PAD</span>' +
-                  '<span style="font-size:9.5px;color:#00e676;font-weight:800;">ZERO AUTO-COUNT</span>' +
+                  '<button id="ariseQuickRestBtn" class="arise-pro-btn" style="padding:4px 9px;font-size:10px;" onclick="window.__ariseQuickRest()">⏱️ 60s REST</button>' +
                 '</div>' +
                 '<div class="arise-ex-row">' +
                   '<button class="arise-pro-btn on" data-man-ex="pushups" onclick="window.__ariseSetManEx(\'pushups\')">PUSH-UPS</button>' +
@@ -1861,16 +1983,6 @@ jobs:
 
               anchor.parentElement.insertBefore(card, anchor.nextSibling);
             }
-
-            // Anti-False-Count Guard for AI Rep Counter (blocks rapid <850ms false auto-counts)
-            var lastAiCountMs = 0;
-            var origSetInterval = window.setInterval;
-            window.__ariseAiCooldownGuard = function() {
-              var now = Date.now();
-              if (now - lastAiCountMs < 850) return false;
-              lastAiCountMs = now;
-              return true;
-            };
 
             function ensureLiveGpsStrip() {
               if (document.getElementById('ariseLiveGpsStrip') || !document.body) return;
@@ -1897,27 +2009,33 @@ jobs:
               var t = e.target;
               if (!t || !t.closest) return;
               var btn = t.closest('button, a, [role="button"], .tab, .nav-btn');
-              if (btn && window.AJNative && window.AJNative.haptic) {
-                window.AJNative.haptic('tap');
-              }
+              if (btn && window.AJNative && window.AJNative.haptic) window.AJNative.haptic('tap');
               if (btn) {
                 scheduleUiSync();
                 var txt = (btn.textContent || '').trim().toUpperCase();
-                // Live Theme Button Interceptor (fixes CYAN/GREEN/PINK/RGB/DARK/LIGHT/RED/VIOLET/GOLD!)
                 var themeWords = ['CYAN','VIOLET','RED','GREEN','PINK','GOLD','RGB','DARK','LIGHT'];
                 for (var tw = 0; tw < themeWords.length; tw++) {
-                  if (txt === themeWords[tw] || txt === '🌈 ' + themeWords[tw] || txt === '🌑 ' + themeWords[tw] || txt === '☀️ ' + themeWords[tw]) {
-                    applyUniversalTheme(themeWords[tw].toLowerCase());
+                  var w = themeWords[tw];
+                  if (txt === w || txt.indexOf(w) !== -1 && txt.length <= w.length + 4) {
+                    applyUniversalTheme(w.toLowerCase());
+                    // Stop old Domain Shop lock alert for GOLD / RGB
+                    if (w === 'GOLD' || w === 'RGB') {
+                      e.stopImmediatePropagation();
+                      e.preventDefault();
+                    }
                     break;
                   }
                 }
                 if (window.AJNative) {
                   if (txt.indexOf('START PRO GPS') !== -1) {
                     window.__ajSentFirstLock = false;
+                    realMapPath = [];
                     window.AJNative.startBgGps(true);
                   } else if (txt.indexOf('STOP PRO GPS') !== -1) {
                     window.AJNative.stopBgGps();
                   } else if (txt.indexOf('RESET RUN') !== -1) {
+                    realMapPath = [];
+                    drawRealLiveMap();
                     setTimeout(function(){ if (window.AJNative.resetSteps) window.AJNative.resetSteps(); }, 350);
                   }
                 }
@@ -1988,9 +2106,7 @@ jobs:
                 if (!orig || !orig.trim()) continue;
                 var upd = orig;
                 if (upd.trim() === 'A.J' || upd.trim() === 'A.J.') upd = 'ARISE';
-                for (var i = 0; i < brandMap.length; i++) {
-                  upd = upd.replace(brandMap[i][0], brandMap[i][1]);
-                }
+                for (var i = 0; i < brandMap.length; i++) upd = upd.replace(brandMap[i][0], brandMap[i][1]);
                 if (upd !== orig) n.nodeValue = upd;
               }
             }
@@ -2033,25 +2149,19 @@ jobs:
               var cvs = document.getElementById('ariseIntroCanvas');
               var rafId = 0;
               if (cvs && cvs.getContext) {
-                cvs.width = window.innerWidth;
-                cvs.height = window.innerHeight;
+                cvs.width = window.innerWidth; cvs.height = window.innerHeight;
                 var ctx = cvs.getContext('2d');
                 var pts = [];
                 for (var i = 0; i < 42; i++) {
-                  pts.push({
-                    x: Math.random() * cvs.width, y: Math.random() * cvs.height,
-                    r: 1 + Math.random() * 2.2, vy: 0.7 + Math.random() * 1.9, a: 0.25 + Math.random() * 0.65
-                  });
+                  pts.push({ x: Math.random() * cvs.width, y: Math.random() * cvs.height, r: 1 + Math.random() * 2.2, vy: 0.7 + Math.random() * 1.9, a: 0.25 + Math.random() * 0.65 });
                 }
                 function drawPts() {
                   if (!document.getElementById('ariseIntroOverlay')) return;
                   ctx.clearRect(0, 0, cvs.width, cvs.height);
                   for (var j = 0; j < pts.length; j++) {
-                    var p = pts[j];
-                    p.y -= p.vy;
+                    var p = pts[j]; p.y -= p.vy;
                     if (p.y < -5) { p.y = cvs.height + 5; p.x = Math.random() * cvs.width; }
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
                     ctx.fillStyle = isVip ? ('rgba(255,213,79,' + p.a + ')') : ('rgba(0,247,255,' + p.a + ')');
                     ctx.fill();
                   }
@@ -2062,7 +2172,7 @@ jobs:
 
               var steps = [
                 [38, 'SYNCING GOOGLE FUSED GPS...'],
-                [74, 'ENGAGING STUDIO AUDIO &amp; SENSORS...'],
+                [74, 'ENGAGING STUDIO AUDIO &amp; DUAL MAPS...'],
                 [100, isVip ? '👑 SOVEREIGN VIP READY — ARISE!' : 'SYSTEM AWAKENED — ARISE!']
               ];
               steps.forEach(function(st, idx) {
@@ -2323,7 +2433,7 @@ jobs:
               pro.innerHTML =
                 '<div style="display:flex;justify-content:space-between;align-items:center;">' +
                   '<span style="font-size:13px;font-weight:900;color:#00f7ff;letter-spacing:1.4px;">⚡ ARISE PRO SECURITY &amp; ENGINE</span>' +
-                  '<span style="font-size:10px;color:#00e676;font-weight:800;">v1.0.1 RELEASE</span>' +
+                  '<span style="font-size:10px;color:#00e676;font-weight:800;">v1.0.2 DUAL-MAP</span>' +
                 '</div>' +
                 '<div class="arise-pro-row">' +
                   '<div><div style="font-size:12px;font-weight:700;">🔒 Fingerprint / Face / PIN Lock</div><div style="font-size:10px;color:#7ec8e3;">Biometric security on app open</div></div>' +
@@ -2355,6 +2465,8 @@ jobs:
             }
 
             window.__ajSetMapMode = function(mode) {
+              realMapMode = mode;
+              tileCache = {};
               document.querySelectorAll('.aj-layer-btn').forEach(function(b) {
                 b.classList.toggle('active', b.getAttribute('data-mode') === mode);
               });
@@ -2365,7 +2477,8 @@ jobs:
                   try { var base = (img.src || '').split('?')[0]; if (base) img.src = base + '?ajm=' + stamp; } catch(e) {}
                 });
               }
-              setTimeout(function() { window.dispatchEvent(new Event('resize')); }, 350);
+              drawRealLiveMap();
+              setTimeout(function() { window.dispatchEvent(new Event('resize')); drawRealLiveMap(); }, 350);
             };
 
             function degToCompass(deg) {
@@ -2397,6 +2510,15 @@ jobs:
                   });
                 }
               }
+              realMapLat = d.lat;
+              realMapLng = d.lng;
+              var lastP = realMapPath[realMapPath.length - 1];
+              if (!lastP || Math.abs(lastP.lat - d.lat) > 0.00003 || Math.abs(lastP.lng - d.lng) > 0.00003) {
+                realMapPath.push({ lat: d.lat, lng: d.lng });
+                if (realMapPath.length > 600) realMapPath.shift();
+              }
+              drawRealLiveMap();
+
               var strip = document.getElementById('ariseLiveGpsStrip');
               if (strip) {
                 strip.classList.add('active');
@@ -2415,9 +2537,17 @@ jobs:
                 pill.classList.remove('err');
                 pill.classList.add('live');
               }
+              var paceStr = '--';
+              if (d.avgSpd > 0.8) {
+                var pMin = 60 / d.avgSpd;
+                var pm = Math.floor(pMin), ps = Math.round((pMin - pm) * 60);
+                paceStr = pm + ':' + String(ps).padStart(2, '0');
+              }
               var set = function(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; };
               set('ajHudDist', (d.distM / 1000).toFixed(2) + ' km');
               set('ajHudAvg', d.avgSpd.toFixed(1) + ' km/h');
+              set('ajHudPace', paceStr);
+              set('ajHudKcal', Math.round(d.kcal || 0) + ' kcal');
               set('ajHudElev', '+' + Math.round(d.elevGain) + ' m');
               set('ajHudComp', degToCompass(d.bearing));
               set('ajHudSteps', String(latestHwSteps || d.steps));
@@ -2426,7 +2556,7 @@ jobs:
             };
 
             function mountGpsHud() {
-              if (document.getElementById('ajProGpsHud')) return;
+              if (document.getElementById('ajProGpsHud')) { drawRealLiveMap(); return; }
               var proBtn = Array.from(document.querySelectorAll('button')).find(function(b) {
                 return (b.textContent || '').toUpperCase().indexOf('PRO GPS') !== -1;
               });
@@ -2451,9 +2581,20 @@ jobs:
                   '<button class="aj-layer-btn" data-mode="street" onclick="window.__ajSetMapMode(\'street\')">STREET</button>' +
                   '<button class="aj-layer-btn" data-mode="topo" onclick="window.__ajSetMapMode(\'topo\')">TOPO</button>' +
                 '</div>' +
+                '<div id="ajRealMapWrap">' +
+                  '<canvas id="ajRealMapCanvas"></canvas>' +
+                  '<div class="aj-map-tag">🗺️ LIVE REAL MAP</div>' +
+                  '<div class="aj-map-ctrl">' +
+                    '<button class="aj-map-btn" onclick="window.__ajZoomRealMap(1)">+</button>' +
+                    '<button class="aj-map-btn" onclick="window.__ajZoomRealMap(-1)">−</button>' +
+                    '<button class="aj-map-btn" onclick="window.__ajRecenterRealMap()">🎯</button>' +
+                  '</div>' +
+                '</div>' +
                 '<div class="aj-hud-grid">' +
                   '<div class="aj-hud-box"><div class="aj-hud-lbl">BG DIST</div><div id="ajHudDist" class="aj-hud-val">0.00 km</div></div>' +
                   '<div class="aj-hud-box"><div class="aj-hud-lbl">AVG SPD</div><div id="ajHudAvg" class="aj-hud-val">0.0 km/h</div></div>' +
+                  '<div class="aj-hud-box"><div class="aj-hud-lbl">PACE</div><div id="ajHudPace" class="aj-hud-val">--</div></div>' +
+                  '<div class="aj-hud-box"><div class="aj-hud-lbl">BURN</div><div id="ajHudKcal" class="aj-hud-val">0 kcal</div></div>' +
                   '<div class="aj-hud-box"><div class="aj-hud-lbl">CLIMB</div><div id="ajHudElev" class="aj-hud-val">+0 m</div></div>' +
                   '<div class="aj-hud-box"><div class="aj-hud-lbl">COMPASS</div><div id="ajHudComp" class="aj-hud-val">N 0°</div></div>' +
                   '<div class="aj-hud-box"><div class="aj-hud-lbl">HW STEPS</div><div id="ajHudSteps" class="aj-hud-val">0</div></div>' +
@@ -2472,6 +2613,7 @@ jobs:
                 var st = window.AJNative.getBgGpsState();
                 if (st) { try { window.__onAJNativeGps(JSON.parse(st)); } catch(e) {} }
               }
+              drawRealLiveMap();
             }
 
             setTimeout(scheduleUiSync, 500);
@@ -2526,3 +2668,8 @@ jobs:
         with:
           name: ARISE-KEYSTORE-BACKUP-KEEP-SAFE
           path: keystore-backup/
+ 
+                          
+
+            
+              
