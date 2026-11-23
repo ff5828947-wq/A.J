@@ -1499,7 +1499,7 @@ jobs:
           with open(path, "w", encoding="utf-8") as f:
               f.write(html)
           PYEOF
-          cat << 'EOF' >> app/src/main/assets/index.html
+                    cat << 'EOF' >> app/src/main/assets/index.html
           <style>
             * { -webkit-tap-highlight-color: transparent; }
             html { background-color: #030812 !important; overflow-y: auto !important; height: auto !important; min-height: 100% !important; transition: filter 0.25s ease; }
@@ -1511,8 +1511,8 @@ jobs:
             button { transition: transform 0.11s ease, opacity 0.11s ease !important; }
             button:active { transform: scale(0.97) !important; opacity: 0.88 !important; }
 
-            /* ALL 9 WORKING LIVE THEMES + TRUE-COLOR MAP PROTECTION */
-            html.vip-theme-gold,     html.arise-theme-gold    { filter: hue-rotate(192deg) saturate(1.28) brightness(1.04) !important; }
+            /* ALL 9 WORKING LIVE THEMES + TRUE RICH GOLD + TRUE-COLOR MAP PROTECTION */
+            html.vip-theme-gold,     html.arise-theme-gold    { filter: hue-rotate(222deg) saturate(1.35) brightness(1.06) !important; }
             html.vip-theme-crimson,  html.arise-theme-red     { filter: hue-rotate(155deg) saturate(1.38) contrast(1.05) !important; }
             html.vip-theme-emerald,  html.arise-theme-green   { filter: hue-rotate(-52deg) saturate(1.25) !important; }
             html.vip-theme-amethyst, html.arise-theme-violet  { filter: hue-rotate(82deg)  saturate(1.28) !important; }
@@ -1521,7 +1521,7 @@ jobs:
             html.arise-theme-light                            { filter: invert(0.92) hue-rotate(180deg) contrast(1.04) !important; }
 
             /* Keep Real Google Map in 100% True Colors under every theme */
-            html.vip-theme-gold #ajRealMapCanvas,     html.arise-theme-gold #ajRealMapCanvas    { filter: hue-rotate(-192deg) !important; }
+            html.vip-theme-gold #ajRealMapCanvas,     html.arise-theme-gold #ajRealMapCanvas    { filter: hue-rotate(-222deg) !important; }
             html.vip-theme-crimson #ajRealMapCanvas,  html.arise-theme-red #ajRealMapCanvas     { filter: hue-rotate(-155deg) !important; }
             html.vip-theme-emerald #ajRealMapCanvas,  html.arise-theme-green #ajRealMapCanvas   { filter: hue-rotate(52deg) !important; }
             html.vip-theme-amethyst #ajRealMapCanvas, html.arise-theme-violet #ajRealMapCanvas  { filter: hue-rotate(-82deg) !important; }
@@ -1759,6 +1759,7 @@ jobs:
             var rgbIv = null;
             var rgbDeg = 0;
             var currentLiveTheme = 'cyan';
+            var isInternalReset = false;
             var toastT = 0;
 
             function showToast(msg) {
@@ -1786,14 +1787,22 @@ jobs:
               });
             }
 
-            // Reset base index.html theme classes so GOLD & RGB never mix with LIGHT/RED
-            function resetBaseDarkTheme() {
+            // Programmatically reset original index.html back to clean dark CYAN before GOLD/RGB
+            function resetBaseToCyan() {
+              var cyanBtn = null;
+              document.querySelectorAll('button').forEach(function(b) {
+                if (b.closest && b.closest('#ariseVipModal')) return;
+                var clean = (b.textContent || '').replace(/[^A-Z]/gi, '').toUpperCase();
+                if (clean === 'CYAN') cyanBtn = b;
+              });
+              if (cyanBtn) {
+                isInternalReset = true;
+                try { cyanBtn.click(); } catch(e) {}
+                isInternalReset = false;
+              }
               var root = document.documentElement;
               var body = document.body;
-              if (root) {
-                root.removeAttribute('data-theme');
-                root.style.backgroundColor = '#030812';
-              }
+              if (root) { root.removeAttribute('data-theme'); root.style.backgroundColor = '#030812'; }
               if (body) {
                 body.classList.remove('light', 'light-mode', 'theme-light', 'theme-red', 'theme-green', 'theme-pink', 'theme-violet', 'theme-gold');
                 body.style.backgroundColor = '#030812';
@@ -1837,7 +1846,11 @@ jobs:
               root.style.filter = '';
               if (mapCvs) mapCvs.style.filter = '';
               allThemeClasses.forEach(function(c) { root.classList.remove(c); });
-              resetBaseDarkTheme();
+
+              // Always reset original app's theme to clean CYAN before applying GOLD or RGB
+              if (t === 'gold' || t === 'rgb') {
+                resetBaseToCyan();
+              }
 
               if (t === 'rgb') {
                 rgbIv = setInterval(function() {
@@ -2208,15 +2221,15 @@ jobs:
               }, 160);
             }
 
-            // GLOBAL CLICK LISTENER (STRICTLY IGNORES VIP MODAL SO NON-VIP CANNOT BYPASS VIP THEMES!)
+            // GLOBAL CLICK LISTENER (IGNORES INTERNAL RESET & VIP MODAL!)
             document.addEventListener('click', function(e) {
+              if (isInternalReset) return;
               var t = e.target;
               if (!t || !t.closest) return;
               var btn = t.closest('button, a, [role="button"], .tab, .nav-btn');
               if (btn && window.AJNative && window.AJNative.haptic) window.AJNative.haptic('tap');
               if (btn) {
                 scheduleUiSync();
-                // Do NOT intercept VIP modal buttons here
                 if (!btn.closest('#ariseVipModal')) {
                   var clean = (btn.textContent || '').replace(/[^A-Z]/gi, '').toUpperCase();
                   var themeWords = ['CYAN','VIOLET','RED','GREEN','PINK','GOLD','RGB','DARK','LIGHT'];
@@ -2663,7 +2676,7 @@ jobs:
               pro.innerHTML =
                 '<div style="display:flex;justify-content:space-between;align-items:center;">' +
                   '<span style="font-size:13px;font-weight:900;color:#00f7ff;letter-spacing:1.4px;">⚡ ARISE PRO SECURITY &amp; ENGINE</span>' +
-                  '<span style="font-size:10px;color:#00e676;font-weight:800;">v1.1.1 FINAL</span>' +
+                  '<span style="font-size:10px;color:#00e676;font-weight:800;">v1.1.2 FINAL</span>' +
                 '</div>' +
                 '<div class="arise-quote-box">' + QUOTES[qIdx] + '</div>' +
                 '<div class="arise-pro-row">' +
