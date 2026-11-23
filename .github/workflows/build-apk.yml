@@ -76,8 +76,8 @@ jobs:
                   applicationId = "com.arise.dailyworkout.pro"
                   minSdk = 31
                   targetSdk = 36
-                  versionCode = 2
-                  versionName = "1.0.1"
+                  versionCode = 3
+                  versionName = "1.1.1"
               }
               signingConfigs {
                   create("release") {
@@ -1499,7 +1499,7 @@ jobs:
           with open(path, "w", encoding="utf-8") as f:
               f.write(html)
           PYEOF
-                    cat << 'EOF' >> app/src/main/assets/index.html
+          cat << 'EOF' >> app/src/main/assets/index.html
           <style>
             * { -webkit-tap-highlight-color: transparent; }
             html { background-color: #030812 !important; overflow-y: auto !important; height: auto !important; min-height: 100% !important; transition: filter 0.25s ease; }
@@ -1512,7 +1512,7 @@ jobs:
             button:active { transform: scale(0.97) !important; opacity: 0.88 !important; }
 
             /* ALL 9 WORKING LIVE THEMES + TRUE-COLOR MAP PROTECTION */
-            html.vip-theme-gold,     html.arise-theme-gold    { filter: hue-rotate(192deg) saturate(1.25) brightness(1.04) !important; }
+            html.vip-theme-gold,     html.arise-theme-gold    { filter: hue-rotate(192deg) saturate(1.28) brightness(1.04) !important; }
             html.vip-theme-crimson,  html.arise-theme-red     { filter: hue-rotate(155deg) saturate(1.38) contrast(1.05) !important; }
             html.vip-theme-emerald,  html.arise-theme-green   { filter: hue-rotate(-52deg) saturate(1.25) !important; }
             html.vip-theme-amethyst, html.arise-theme-violet  { filter: hue-rotate(82deg)  saturate(1.28) !important; }
@@ -1548,6 +1548,16 @@ jobs:
               background: linear-gradient(135deg, #ffb300, #ffe082); color: #1a1100;
               box-shadow: 0 0 10px rgba(255, 213, 79, 0.6);
             }
+
+            #ariseToast {
+              position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 999999;
+              padding: 9px 16px; border-radius: 99px; font-family: monospace, sans-serif;
+              font-size: 11px; font-weight: 900; letter-spacing: 0.6px;
+              background: rgba(6, 18, 34, 0.96); color: #ffd54f;
+              border: 1.5px solid #ffd54f; box-shadow: 0 4px 18px rgba(0,0,0,0.65);
+              opacity: 0; pointer-events: none; transition: opacity 0.22s ease; white-space: nowrap;
+            }
+            #ariseToast.show { opacity: 1; }
 
             #ariseIntroOverlay {
               position: fixed; inset: 0; z-index: 999999;
@@ -1659,6 +1669,7 @@ jobs:
               border: 1px solid rgba(255,213,79,0.45); background: rgba(0,0,0,0.5); color: #ffe082;
             }
             .vip-theme-pill.active { background: #ffd54f; color: #1a1100; }
+            .vip-theme-pill.locked { opacity: 0.48; border-style: dashed; }
 
             #ariseInlineProCard, #ariseManualPadCard {
               margin: 12px 0 14px 0; padding: 14px; border-radius: 14px;
@@ -1676,6 +1687,11 @@ jobs:
               border: 1px solid #00e5ff; background: #00344f; color: #00f7ff;
             }
             .arise-pro-btn.on { background: #00e676; color: #021a0d; border-color: #00e676; }
+            .arise-quote-box {
+              margin-top: 10px; padding: 9px 11px; border-radius: 10px;
+              background: rgba(0,247,255,0.08); border-left: 3px solid #00f7ff;
+              font-size: 10.5px; color: #b8e8ff; line-height: 1.4;
+            }
 
             .arise-man-pad {
               width: 100%; padding: 18px 10px; margin-top: 10px; border-radius: 14px;
@@ -1713,7 +1729,6 @@ jobs:
             .aj-bg-pill.live { background: rgba(0,230,118,0.2); color: #00e676; border-color: rgba(0,230,118,0.65); }
             .aj-bg-pill.err { background: rgba(255,61,0,0.24); color: #ff6e40; border-color: rgba(255,61,0,0.7); }
 
-            /* REAL GOOGLE MAPS INTERACTIVE CONTAINER */
             #ajRealMapWrap {
               position: relative; width: 100%; height: 260px; margin-top: 10px;
               border-radius: 12px; overflow: hidden;
@@ -1744,10 +1759,26 @@ jobs:
             var rgbIv = null;
             var rgbDeg = 0;
             var currentLiveTheme = 'cyan';
+            var toastT = 0;
+
+            function showToast(msg) {
+              var el = document.getElementById('ariseToast');
+              if (!el && document.body) {
+                el = document.createElement('div');
+                el.id = 'ariseToast';
+                document.body.appendChild(el);
+              }
+              if (!el) return;
+              el.textContent = msg;
+              el.classList.add('show');
+              clearTimeout(toastT);
+              toastT = setTimeout(function(){ el.classList.remove('show'); }, 2200);
+            }
 
             function highlightThemeButtons(activeName) {
               var a = (activeName || 'cyan').toUpperCase();
               document.querySelectorAll('button').forEach(function(b) {
+                if (b.closest && b.closest('#ariseVipModal')) return;
                 var clean = (b.textContent || '').replace(/[^A-Z]/gi, '').toUpperCase();
                 if (['CYAN','VIOLET','RED','GREEN','PINK','GOLD','RGB','DARK','LIGHT'].indexOf(clean) !== -1) {
                   b.classList.toggle('arise-theme-active-btn', clean === a);
@@ -1755,8 +1786,23 @@ jobs:
               });
             }
 
+            // Reset base index.html theme classes so GOLD & RGB never mix with LIGHT/RED
+            function resetBaseDarkTheme() {
+              var root = document.documentElement;
+              var body = document.body;
+              if (root) {
+                root.removeAttribute('data-theme');
+                root.style.backgroundColor = '#030812';
+              }
+              if (body) {
+                body.classList.remove('light', 'light-mode', 'theme-light', 'theme-red', 'theme-green', 'theme-pink', 'theme-violet', 'theme-gold');
+                body.style.backgroundColor = '#030812';
+              }
+            }
+
             function unlockGoldAndRgbButtons() {
               document.querySelectorAll('button').forEach(function(b) {
+                if (b.closest && b.closest('#ariseVipModal')) return;
                 var raw = (b.textContent || '').toUpperCase();
                 var clean = raw.replace(/[^A-Z]/gi, '');
                 if (clean === 'GOLD' || clean === 'RGB') {
@@ -1765,7 +1811,7 @@ jobs:
                   b.style.pointerEvents = 'auto';
                   b.removeAttribute('onclick');
                   if (raw.indexOf('🔒') !== -1 || raw.indexOf('LOCK') !== -1) {
-                    b.textContent = clean === 'GOLD' ? '👑 GOLD' : '🌈 RGB';
+                    b.textContent = clean === 'GOLD' ? 'GOLD' : 'RGB';
                   }
                   if (!b.__ariseThemeBound) {
                     b.__ariseThemeBound = true;
@@ -1773,6 +1819,7 @@ jobs:
                       ev.stopImmediatePropagation();
                       ev.preventDefault();
                       applyUniversalTheme(clean.toLowerCase());
+                      showToast(clean === 'RGB' ? '🌈 Live RGB Theme Active!' : '✨ Gold Theme Active!');
                       if (window.AJNative && window.AJNative.haptic) window.AJNative.haptic('tap');
                     }, true);
                   }
@@ -1790,14 +1837,15 @@ jobs:
               root.style.filter = '';
               if (mapCvs) mapCvs.style.filter = '';
               allThemeClasses.forEach(function(c) { root.classList.remove(c); });
+              resetBaseDarkTheme();
 
               if (t === 'rgb') {
                 rgbIv = setInterval(function() {
                   rgbDeg = (rgbDeg + 5) % 360;
-                  root.style.filter = 'hue-rotate(' + rgbDeg + 'deg) saturate(1.3)';
+                  root.style.filter = 'hue-rotate(' + rgbDeg + 'deg) saturate(1.32)';
                   var mc = document.getElementById('ajRealMapCanvas');
                   if (mc) mc.style.filter = 'hue-rotate(' + (-rgbDeg) + 'deg)';
-                }, 95);
+                }, 90);
               } else if (t !== 'cyan' && t !== 'default') {
                 var map = {
                   'gold': 'arise-theme-gold', 'red': 'arise-theme-red', 'crimson': 'arise-theme-red',
@@ -2095,6 +2143,25 @@ jobs:
               anchor.parentElement.insertBefore(card, anchor.nextSibling);
             }
 
+            // 1-TAP WORKOUT DATA BACKUP (JSON EXPORT)
+            window.__ariseExportBackup = function() {
+              try {
+                var dump = {};
+                for (var i = 0; i < localStorage.length; i++) {
+                  var k = localStorage.key(i);
+                  dump[k] = localStorage.getItem(k);
+                }
+                var summary = 'ARISE Workout Backup (' + new Date().toLocaleDateString() + ')\n' + JSON.stringify(dump);
+                if (window.AJNative && window.AJNative.shareReport) {
+                  window.AJNative.shareReport(summary);
+                } else {
+                  showToast('Backup Ready!');
+                }
+              } catch(e) {
+                showToast('Backup Failed');
+              }
+            };
+
             // PLAY STORE IN-APP PRIVACY & DATA SAFETY MODAL
             window.__ariseOpenPrivacy = function() {
               var m = document.getElementById('arisePrivacyModal');
@@ -2141,6 +2208,7 @@ jobs:
               }, 160);
             }
 
+            // GLOBAL CLICK LISTENER (STRICTLY IGNORES VIP MODAL SO NON-VIP CANNOT BYPASS VIP THEMES!)
             document.addEventListener('click', function(e) {
               var t = e.target;
               if (!t || !t.closest) return;
@@ -2148,13 +2216,16 @@ jobs:
               if (btn && window.AJNative && window.AJNative.haptic) window.AJNative.haptic('tap');
               if (btn) {
                 scheduleUiSync();
-                var clean = (btn.textContent || '').replace(/[^A-Z]/gi, '').toUpperCase();
-                var themeWords = ['CYAN','VIOLET','RED','GREEN','PINK','GOLD','RGB','DARK','LIGHT'];
-                if (themeWords.indexOf(clean) !== -1) {
-                  applyUniversalTheme(clean.toLowerCase());
-                  if (clean === 'GOLD' || clean === 'RGB') {
-                    e.stopImmediatePropagation();
-                    e.preventDefault();
+                // Do NOT intercept VIP modal buttons here
+                if (!btn.closest('#ariseVipModal')) {
+                  var clean = (btn.textContent || '').replace(/[^A-Z]/gi, '').toUpperCase();
+                  var themeWords = ['CYAN','VIOLET','RED','GREEN','PINK','GOLD','RGB','DARK','LIGHT'];
+                  if (themeWords.indexOf(clean) !== -1) {
+                    applyUniversalTheme(clean.toLowerCase());
+                    if (clean === 'GOLD' || clean === 'RGB') {
+                      e.stopImmediatePropagation();
+                      e.preventDefault();
+                    }
                   }
                 }
                 var txt = (btn.textContent || '').trim().toUpperCase();
@@ -2175,13 +2246,17 @@ jobs:
               }
             }, true);
 
+            // STRICT VIP THEME LOCK — BLOCKED WITHOUT ACTIVE SUBSCRIPTION!
             window.__ariseSetVipTheme = function(theme) {
-              if (theme !== 'cyan' && !(window.AJNative && window.AJNative.isVip && window.AJNative.isVip())) {
-                window.__ariseOpenVipModal();
+              var isVip = !!(window.AJNative && window.AJNative.isVip && window.AJNative.isVip());
+              if (theme !== 'cyan' && !isVip) {
+                if (window.AJNative && window.AJNative.haptic) window.AJNative.haptic('heavy');
+                showToast('🔒 VIP Subscription Required (₹2/mo)');
                 return;
               }
               if (window.AJNative && window.AJNative.setVipTheme) window.AJNative.setVipTheme(theme);
               applyUniversalTheme(theme);
+              showToast('👑 VIP Theme: ' + theme.toUpperCase());
             };
             if (window.AJNative && window.AJNative.isVip && window.AJNative.isVip()) {
               var savedT = window.AJNative.getVipTheme ? window.AJNative.getVipTheme() : 'cyan';
@@ -2390,14 +2465,14 @@ jobs:
                   '<div class="vip-perk"><span>🎧</span><div><b style="font-size:11px;color:#ffd54f;">Studio Bass Boost + 500ms Turbo GPS</b><div style="font-size:10px;color:#e0d6b8;">Deep punchy BGM audio, 2× GPS precision &amp; 1-tap Share</div></div></div>' +
                   '<div class="vip-perk"><span>👑</span><div><b style="font-size:11px;color:#ffd54f;">Sovereign Crown Badge &amp; Gold Intro</b><div style="font-size:10px;color:#e0d6b8;">Header VIP crown + exclusive golden particle boot</div></div></div>' +
                   '<div id="ariseVipThemeRow" style="margin-top:11px;">' +
-                    '<div style="font-size:10px;color:#ffe082;margin-bottom:6px;letter-spacing:1px;">SELECT LUXURY THEME:</div>' +
+                    '<div style="font-size:10px;color:#ffe082;margin-bottom:6px;letter-spacing:1px;">LUXURY VIP THEMES (SUBSCRIPTION REQUIRED):</div>' +
                     '<div class="vip-theme-grid">' +
                       '<button class="vip-theme-pill active" data-theme="cyan" onclick="window.__ariseSetVipTheme(\'cyan\')">CYAN</button>' +
-                      '<button class="vip-theme-pill" data-theme="gold" onclick="window.__ariseSetVipTheme(\'gold\')">👑 GOLD</button>' +
-                      '<button class="vip-theme-pill" data-theme="crimson" onclick="window.__ariseSetVipTheme(\'crimson\')">🔥 RED</button>' +
-                      '<button class="vip-theme-pill" data-theme="emerald" onclick="window.__ariseSetVipTheme(\'emerald\')">💚 MATRIX</button>' +
-                      '<button class="vip-theme-pill" data-theme="amethyst" onclick="window.__ariseSetVipTheme(\'amethyst\')">💜 PURPLE</button>' +
-                      '<button class="vip-theme-pill" data-theme="frost" onclick="window.__ariseSetVipTheme(\'frost\')">❄️ FROST</button>' +
+                      '<button class="vip-theme-pill locked" data-theme="gold" onclick="window.__ariseSetVipTheme(\'gold\')">🔒 GOLD</button>' +
+                      '<button class="vip-theme-pill locked" data-theme="crimson" onclick="window.__ariseSetVipTheme(\'crimson\')">🔒 RED</button>' +
+                      '<button class="vip-theme-pill locked" data-theme="emerald" onclick="window.__ariseSetVipTheme(\'emerald\')">🔒 MATRIX</button>' +
+                      '<button class="vip-theme-pill locked" data-theme="amethyst" onclick="window.__ariseSetVipTheme(\'amethyst\')">🔒 PURPLE</button>' +
+                      '<button class="vip-theme-pill locked" data-theme="frost" onclick="window.__ariseSetVipTheme(\'frost\')">🔒 FROST</button>' +
                     '</div>' +
                   '</div>' +
                   '<div id="ariseVipControls" style="display:none;margin-top:10px;gap:6px;flex-wrap:wrap;">' +
@@ -2427,7 +2502,7 @@ jobs:
 
             window.__ariseRefreshVipUI = function() {
               if (!window.AJNative) return;
-              var isVip = window.AJNative.isVip && window.AJNative.isVip();
+              var isVip = !!(window.AJNative.isVip && window.AJNative.isVip());
               var buyBtn = document.getElementById('ariseBuyVipBtn');
               var ctrls = document.getElementById('ariseVipControls');
               var sub = document.getElementById('ariseVipStatusSub');
@@ -2450,6 +2525,20 @@ jobs:
                 bassBtn.textContent = bOn ? '🎧 BASS: ON' : '🎧 BASS: OFF';
                 bassBtn.classList.toggle('on', bOn);
               }
+              var vipLabels = {
+                gold: isVip ? '👑 GOLD' : '🔒 GOLD',
+                crimson: isVip ? '🔥 RED' : '🔒 RED',
+                emerald: isVip ? '💚 MATRIX' : '🔒 MATRIX',
+                amethyst: isVip ? '💜 PURPLE' : '🔒 PURPLE',
+                frost: isVip ? '❄️ FROST' : '🔒 FROST'
+              };
+              document.querySelectorAll('.vip-theme-pill').forEach(function(b) {
+                var th = b.getAttribute('data-theme');
+                if (th && th !== 'cyan') {
+                  b.classList.toggle('locked', !isVip);
+                  if (vipLabels[th]) b.textContent = vipLabels[th];
+                }
+              });
               syncVipHeaderBadge();
             };
 
@@ -2542,6 +2631,13 @@ jobs:
             }
             window.__ariseRefreshPro = refreshProCard;
 
+            var QUOTES = [
+              "“Discipline is doing what needs to be done, even when you don't want to.”",
+              "“Every rep you finish today builds the strength you'll need tomorrow.”",
+              "“No excuses. Show up, finish the quest, and ARISE.”",
+              "“Consistency beats intensity when intensity quits.”"
+            ];
+
             function mountInlineProSettings() {
               if (document.getElementById('ariseInlineProCard')) { refreshProCard(); return; }
               var alarmEl = document.getElementById('inAlarmTime');
@@ -2561,13 +2657,15 @@ jobs:
                 '</div>' +
                 '<button id="ariseVipBannerBtn" class="vip-gold-btn" onclick="window.__ariseOpenVipModal()">₹2 / MONTH</button>';
 
+              var qIdx = (new Date().getDate()) % QUOTES.length;
               var pro = document.createElement('div');
               pro.id = 'ariseInlineProCard';
               pro.innerHTML =
                 '<div style="display:flex;justify-content:space-between;align-items:center;">' +
                   '<span style="font-size:13px;font-weight:900;color:#00f7ff;letter-spacing:1.4px;">⚡ ARISE PRO SECURITY &amp; ENGINE</span>' +
-                  '<span style="font-size:10px;color:#00e676;font-weight:800;">v1.1.0 FINAL</span>' +
+                  '<span style="font-size:10px;color:#00e676;font-weight:800;">v1.1.1 FINAL</span>' +
                 '</div>' +
+                '<div class="arise-quote-box">' + QUOTES[qIdx] + '</div>' +
                 '<div class="arise-pro-row">' +
                   '<div><div style="font-size:12px;font-weight:700;">🔒 Fingerprint / Face / PIN Lock</div><div style="font-size:10px;color:#7ec8e3;">Biometric security on app open</div></div>' +
                   '<button id="ariseBioBtn" class="arise-pro-btn" onclick="if(window.AJNative){var n=!window.AJNative.isBioLockEnabled();window.AJNative.setBioLockEnabled(n);if(n)window.AJNative.triggerBiometric(\'Confirm Fingerprint Lock\');setTimeout(window.__ariseRefreshPro,200);}">OFF</button>' +
@@ -2590,6 +2688,10 @@ jobs:
                     '<button class="arise-pro-btn" onclick="window.__arisePlayIntro(true);">PLAY</button>' +
                     '<button id="ariseIntBtn" class="arise-pro-btn on" onclick="if(window.AJNative){window.AJNative.setIntroEnabled(!window.AJNative.isIntroEnabled());window.__ariseRefreshPro();}">ON</button>' +
                   '</div>' +
+                '</div>' +
+                '<div class="arise-pro-row">' +
+                  '<div><div style="font-size:12px;font-weight:700;">💾 Workout Data Backup</div><div style="font-size:10px;color:#7ec8e3;">Export local progress &amp; stats</div></div>' +
+                  '<button class="arise-pro-btn" onclick="window.__ariseExportBackup()">EXPORT</button>' +
                 '</div>' +
                 '<div class="arise-pro-row">' +
                   '<div><div style="font-size:12px;font-weight:700;">🛡️ Privacy &amp; Data Safety</div><div style="font-size:10px;color:#7ec8e3;">100% on-device storage • Play Store verified</div></div>' +
